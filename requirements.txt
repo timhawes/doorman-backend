@@ -1,0 +1,3 @@
+aiohttp
+paho-mqtt
+pyyaml
