@@ -82,9 +82,9 @@ async def create_client(reader, writer):
     if client:
         return client
 
-async def ss_reader(reader, callback):
+async def ss_reader(reader, callback, timeout=180):
     while True:
-        data = await read_packet(reader, len_bytes=2)
+        data = await asyncio.wait_for(read_packet(reader, len_bytes=2), timeout=timeout)
         if data:
             #logging.debug("ss_reader < {}".format(data))
             msg = json.loads(data)
@@ -138,9 +138,11 @@ async def ss_handler(reader, writer):
             client.sync_task(),
         )
     except ConnectionResetError as e:
-        await client.handle_disconnect()
+        await client.handle_disconnect(reason='connection reset')
     except asyncio.streams.IncompleteReadError as e:
-        await client.handle_disconnect()
+        await client.handle_disconnect(reason='incomplete read')
+    except asyncio.TimeoutError as e:
+        await client.handle_disconnect(reason='receive timeout')
     except Exception as e:
         logging.exception("gather exception")
     finally:

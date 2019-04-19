@@ -243,13 +243,13 @@ class Client:
         await self.send_message({'cmd': 'ready'})
         await self.send_message({'cmd': 'system_query'})
 
-    async def handle_disconnect(self):
+    async def handle_disconnect(self, reason=None):
         if self.factory.client_from_id(self.clientid) is self:
-            self.log('disconnect (final)')
+            self.log('disconnect: {} (final)'.format(reason))
             await self.send_mqtt('{}/status'.format(self.slug), 'offline', True)
             await self.send_mqtt('{}/address'.format(self.slug), '', True)
         else:
-            self.log('disconnect (replaced)')
+            self.log('disconnect: {} (replaced)'.format(reason))
 
     async def handle_message(self, message):
         """Handle and dispatch an incoming message from the client."""
