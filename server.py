@@ -220,6 +220,13 @@ async def ssl_server():
         await server.serve_forever()
 
 
+async def reloader():
+
+    while True:
+        await asyncio.sleep(300)
+        await tokendb.load()
+
+
 async def main():
     await tokendb.load()
 
@@ -228,6 +235,7 @@ async def main():
             command_server(),
             standard_server(),
             ssl_server(),
+            reloader(),
         )
     except Exception as e:
         logging.exception("gather exception")
