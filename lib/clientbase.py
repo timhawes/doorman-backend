@@ -172,15 +172,19 @@ class Client:
         self.log('send {}'.format(self.loggable_message(message)))
         await self.send_message(message)
 
-    async def send_mqtt(self, topic, payload, retain=False, dedup=False):
+    async def send_mqtt(self, topic, payload, retain=False, dedup=False, ignore_prefix=False):
+        if ignore_prefix:
+            t = topic
+        else:
+            t = self.mqtt_prefix + self.slug + '/' + topic
         logging.debug('mqtt {} {} {}'.format(topic, payload, retain))
         if self.factory.mqtt_queue:
             if retain:
-                if dedup is False or payload != self.mqtt_cache.get(topic):
-                    self.factory.mqtt_queue.put((topic, payload, retain), block=False)
-                    self.mqtt_cache[topic] = payload
+                if dedup is False or payload != self.mqtt_cache.get(t):
+                    self.factory.mqtt_queue.put((t, payload, retain), block=False)
+                    self.mqtt_cache[t] = payload
             else:
-                self.factory.mqtt_queue.put((topic, payload, retain), block=False)
+                self.factory.mqtt_queue.put((t, payload, retain), block=False)
 
     async def sync_task(self):
         logging.debug('sync_task: starting')
@@ -237,17 +241,17 @@ class Client:
     async def handle_connect(self):
         self.log('connect {}'.format(self))
         await self.reload_settings(True)
-        await self.send_mqtt('{}/id'.format(self.slug), self.clientid, True)
-        await self.send_mqtt('{}/address'.format(self.slug), self.writer.get_extra_info('peername')[0], True)
-        await self.send_mqtt('{}/firmware_progress'.format(self.slug), '', True)
+        await self.send_mqtt('id', self.clientid, True)
+        await self.send_mqtt('address', self.writer.get_extra_info('peername')[0], True)
+        await self.send_mqtt('firmware_progress', '', True)
         await self.send_message({'cmd': 'ready'})
         await self.send_message({'cmd': 'system_query'})
 
     async def handle_disconnect(self, reason=None):
         if self.factory.client_from_id(self.clientid) is self:
             self.log('disconnect: {} (final)'.format(reason))
-            await self.send_mqtt('{}/status'.format(self.slug), 'offline', True)
-            await self.send_mqtt('{}/address'.format(self.slug), '', True)
+            await self.send_mqtt('status', 'offline', True)
+            await self.send_mqtt('address', '', True)
         else:
             self.log('disconnect: {} (replaced)'.format(reason))
 
@@ -324,7 +328,7 @@ class Client:
         if position + len(chunk) >= self.firmware['size']:
             reply['eof'] = True
         progress = int(100 * (position + len(chunk)) / self.firmware['size'])
-        await self.send_mqtt('{}/firmware_progress'.format(self.slug), str(progress), True)
+        await self.send_mqtt('firmware_progress', str(progress), True)
         await self.send_message(reply)
 
     async def handle_cmd_firmware_write_error(self, message):
@@ -338,7 +342,7 @@ class Client:
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
-                await self.send_mqtt('{}/metrics/{}'.format(self.slug, k), v, True)
+                await self.send_mqtt('metrics/{}'.format(k), v, True)
 
     async def handle_cmd_ping(self, message):
         """Reply to ping requests from the client."""
@@ -357,7 +361,7 @@ class Client:
 
         if 'timestamp' in message:
             rtt = time.time() - float(message['timestamp'])
-            await self.send_mqtt('{}/rtt'.format(self.slug), str(int(rtt*1000)), True)
+            await self.send_mqtt('rtt', str(int(rtt*1000)), True)
     
     async def handle_cmd_system_info(self, message):
         """Receive system-level metadata from the client."""
@@ -367,12 +371,12 @@ class Client:
             self.remote_firmware_active = message['esp_sketch_md5']
 
             # send legacy MQTT topic
-            await self.send_mqtt('{}/sketch_md5'.format(self.slug), message['esp_sketch_md5'], True)
+            await self.send_mqtt('sketch_md5', message['esp_sketch_md5'], True)
 
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
-                await self.send_mqtt('{}/system/{}'.format(self.slug, k), v)
+                await self.send_mqtt('system/{}'.format(k), v)
 
     async def handle_cmd_token_auth(self, message):
         """Look-up a token ID and return authentication data to the client."""

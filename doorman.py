@@ -40,7 +40,7 @@ def friendly_age(t):
 
 class Door(Client):
 
-    def __init__(self, clientid, factory, address):
+    def __init__(self, clientid, factory, address, mqtt_prefix='undefined/'):
         self.clientid = clientid
         self.factory = factory
         self.doordb = factory.doordb
@@ -72,7 +72,8 @@ class Door(Client):
         self.firmware_complete.clear()
         self.firmware_pending_reboot = False
 
-        # mqtt cache
+        # mqtt
+        self.mqtt_prefix = mqtt_prefix
         self.mqtt_cache = {}
 
     async def reload_settings(self, create=False):
@@ -114,22 +115,22 @@ class Door(Client):
 
     async def handle_cmd_state_info(self, message):
         mapping = {
-           'card_enable': ['{}/var/cardEnabled', lambda x: str(x).lower(), True],
-           'exit_enable': ['{}/var/exitEnabled', lambda x: str(x).lower(), True],
-           'snib_enable': ['{}/var/snibEnabled', lambda x: str(x).lower(), True],
-           'card_active': ['{}/var/cardUnlockActive', lambda x: str(x).lower(), True],
-           'exit_active': ['{}/var/exitUnlockActive', lambda x: str(x).lower(), True],
-           'snib_active': ['{}/var/snibUnlockActive', lambda x: str(x).lower(), True],
-           'remote_active': ['{}/var/remoteUnlockActive', lambda x: str(x).lower(), True],
-           'unlock': ['{}/var/unlocked', lambda x: str(x).lower(), True],
-           'door': ['{}/var/doorState', str, True],
-           'power': ['{}/var/powerState', str, True],
-           'voltage': ['{}/var/batteryVoltage', str, True],
+           'card_enable': ['var/cardEnabled', lambda x: str(x).lower(), True],
+           'exit_enable': ['var/exitEnabled', lambda x: str(x).lower(), True],
+           'snib_enable': ['var/snibEnabled', lambda x: str(x).lower(), True],
+           'card_active': ['var/cardUnlockActive', lambda x: str(x).lower(), True],
+           'exit_active': ['var/exitUnlockActive', lambda x: str(x).lower(), True],
+           'snib_active': ['var/snibUnlockActive', lambda x: str(x).lower(), True],
+           'remote_active': ['var/remoteUnlockActive', lambda x: str(x).lower(), True],
+           'unlock': ['var/unlocked', lambda x: str(x).lower(), True],
+           'door': ['var/doorState', str, True],
+           'power': ['var/powerState', str, True],
+           'voltage': ['var/batteryVoltage', str, True],
         }
         
         for attribute in mapping.keys():
             if attribute in message:
-                topic = mapping[attribute][0].format(self.slug)
+                topic = mapping[attribute][0]
                 payload = mapping[attribute][1](message[attribute])
                 retain = mapping[attribute][2]
                 await self.send_mqtt(topic, payload, retain)
@@ -145,7 +146,7 @@ class DoorFactory(ClientFactory):
     def client_from_auth(self, clientid, password, address=None):
         logging.debug('authing client {} with password {}'.format(clientid, password))
         if self.doordb.authenticate(clientid, password):
-            client = Door(clientid, factory=self, address=address)
+            client = Door(clientid, factory=self, address=address, mqtt_prefix=self.mqtt_prefix)
             self.clients_by_id[clientid] = client
             self.clients_by_slug[client.slug] = client
             return client
