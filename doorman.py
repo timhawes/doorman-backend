@@ -126,14 +126,14 @@ class Door(Client):
 
     async def handle_cmd_state_info(self, message):
         mapping = {
-           'card_enable': ['card_enabled', lambda x: str(x).lower(), True],
-           'exit_enable': ['exit_enabled', lambda x: str(x).lower(), True],
-           'snib_enable': ['snib_enabled', lambda x: str(x).lower(), True],
-           'card_active': ['card_unlocked', lambda x: str(x).lower(), True],
-           'exit_active': ['exit_unlocked', lambda x: str(x).lower(), True],
-           'snib_active': ['snib_unlocked', lambda x: str(x).lower(), True],
-           'remote_active': ['remote_unlocked', lambda x: str(x).lower(), True],
-           'unlock': ['unlocked', lambda x: str(x).lower(), True],
+           'card_enable': ['card_enable', lambda x: str(x).lower(), True],
+           'exit_enable': ['exit_enable', lambda x: str(x).lower(), True],
+           'snib_enable': ['snib_enable', lambda x: str(x).lower(), True],
+           'card_active': ['card_active', lambda x: str(x).lower(), True],
+           'exit_active': ['exit_active', lambda x: str(x).lower(), True],
+           'snib_active': ['snib_active', lambda x: str(x).lower(), True],
+           'remote_active': ['remote_active', lambda x: str(x).lower(), True],
+           'unlock': ['unlock', lambda x: str(x).lower(), True],
            'door': ['door', str, True],
            'power': ['power', str, True],
            'voltage': ['voltage', str, True],
