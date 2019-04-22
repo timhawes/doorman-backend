@@ -38,6 +38,15 @@ def friendly_age(t):
         return 'just now'
 
 
+def is_uid(uid):
+    if len(uid) not in [8, 14]:
+        return False
+    for c in uid.lower():
+        if c not in '0123456789abcdef':
+            return False
+    return True
+
+
 class Door(Client):
 
     def __init__(self, clientid, factory, address, mqtt_prefix='undefined/'):
@@ -134,6 +143,10 @@ class Door(Client):
                 payload = mapping[attribute][1](message[attribute])
                 retain = mapping[attribute][2]
                 await self.send_mqtt(topic, payload, retain)
+
+        if 'user' in message:
+            if not is_uid(message['user']):
+                await self.send_mqtt('user', message['user'], True)
 
 
 class DoorFactory(ClientFactory):
