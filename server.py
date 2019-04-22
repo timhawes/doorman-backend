@@ -23,7 +23,7 @@ from ehl_tokendb_crm_async import TokenAuthDatabase
 class settings:
     mqtt_host = os.environ.get('MQTT_HOST')
     mqtt_port = int(os.environ.get('MQTT_PORT', '1883'))
-    mqtt_global_prefix = os.environ.get('MQTT_PREFIX', 'test/')
+    mqtt_global_prefix = os.environ.get('MQTT_GLOBAL_PREFIX', 'test/')
     mqtt_prefix = os.environ.get('MQTT_PREFIX', 'doorman/')
     server_cert_file = os.environ.get('SERVER_CERT_FILE')
     server_key_file = os.environ.get('SERVER_KEY_FILE')
