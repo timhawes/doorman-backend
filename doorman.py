@@ -107,6 +107,8 @@ class Door(Client):
 
         last_keepalive = time.time()
         last_file_check = 0
+        
+        await self.send_mqtt('status', 'online', True)
 
         await self.send_message({'cmd': 'state_query'})
         last_statistics = time.time() - random.randint(15, 60)
