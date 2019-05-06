@@ -108,7 +108,7 @@ class Door(Client):
         last_keepalive = time.time()
         last_file_check = 0
         
-        await self.send_mqtt('status', 'online', True)
+        await self.send_mqtt('status', 'online', retain=True, dedup=False)
 
         await self.send_message({'cmd': 'state_query'})
         last_statistics = time.time() - random.randint(15, 60)
@@ -126,17 +126,17 @@ class Door(Client):
 
     async def handle_cmd_state_info(self, message):
         mapping = {
-           'card_enable': ['card_enable', lambda x: str(x).lower(), True],
-           'exit_enable': ['exit_enable', lambda x: str(x).lower(), True],
-           'snib_enable': ['snib_enable', lambda x: str(x).lower(), True],
-           'card_active': ['card_active', lambda x: str(x).lower(), True],
-           'exit_active': ['exit_active', lambda x: str(x).lower(), True],
-           'snib_active': ['snib_active', lambda x: str(x).lower(), True],
-           'remote_active': ['remote_active', lambda x: str(x).lower(), True],
-           'unlock': ['unlock', lambda x: str(x).lower(), True],
-           'door': ['door', str, True],
-           'power': ['power', str, True],
-           'voltage': ['voltage', str, True],
+           'card_enable': ['card_enable', lambda x: str(x).lower(), True, True],
+           'exit_enable': ['exit_enable', lambda x: str(x).lower(), True, True],
+           'snib_enable': ['snib_enable', lambda x: str(x).lower(), True, True],
+           'card_active': ['card_active', lambda x: str(x).lower(), True, True],
+           'exit_active': ['exit_active', lambda x: str(x).lower(), True, True],
+           'snib_active': ['snib_active', lambda x: str(x).lower(), True, True],
+           'remote_active': ['remote_active', lambda x: str(x).lower(), True, True],
+           'unlock': ['unlock', lambda x: str(x).lower(), True, True],
+           'door': ['door', str, True, True],
+           'power': ['power', str, True, True],
+           'voltage': ['voltage', str, True, False], # no dedup for numerical/graphable values
         }
         
         for attribute in mapping.keys():
@@ -144,11 +144,16 @@ class Door(Client):
                 topic = mapping[attribute][0]
                 payload = mapping[attribute][1](message[attribute])
                 retain = mapping[attribute][2]
-                await self.send_mqtt(topic, payload, retain)
+                dedup = mapping[attribute][3]
+                await self.send_mqtt(topic, payload, retain=retain, dedup=dedup)
 
         if 'user' in message:
             if not is_uid(message['user']):
-                await self.send_mqtt('user', message['user'], True)
+                anon = await self.factory.tokendb.is_anonymous(message['user'])
+                if anon:
+                    await self.send_mqtt('user', 'anonymous', retain=True, dedup=True)
+                else:
+                    await self.send_mqtt('user', message['user'], retain=True, dedup=True)
 
 
 class DoorFactory(ClientFactory):
