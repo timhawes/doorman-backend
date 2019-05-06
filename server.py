@@ -88,7 +88,11 @@ async def ss_reader(reader, callback, timeout=180):
         data = await asyncio.wait_for(read_packet(reader, len_bytes=2), timeout=timeout)
         if data:
             #logging.debug("ss_reader < {}".format(data))
-            msg = json.loads(data)
+            try:
+                msg = json.loads(data)
+            except UnicodeDecodeError:
+                logging.exception('Error processing received packet {}'.format(data))
+                return
             await callback(msg)
         else:
             return
