@@ -122,3 +122,13 @@ class TokenAuthDatabase:
                 except UnicodeEncodeError:
                     output += bytes([0])
         return output
+
+    async def is_anonymous(self, username):
+        if username is None or username == '':
+            return False
+        try:
+            if self.data[username]['privacy'] > 0:
+                return True
+        except:
+            pass
+        return False
