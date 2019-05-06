@@ -147,6 +147,14 @@ class Door(Client):
                 dedup = mapping[attribute][3]
                 await self.send_mqtt(topic, payload, retain=retain, dedup=dedup)
 
+        if 'unlock' in message and 'door' in message:
+            if message['door'] == 'closed' and message['unlock'] is False:
+                await self.send_mqtt('sensor/{}/door'.format(self.slug), 'secure', retain=True, dedup=True, ignore_prefix=True)
+            elif message['door'] == 'closed':
+                await self.send_mqtt('sensor/{}/door'.format(self.slug), 'closed', retain=True, dedup=True, ignore_prefix=True)
+            else:
+                await self.send_mqtt('sensor/{}/door'.format(self.slug), 'open', retain=True, dedup=True, ignore_prefix=True)
+
         if 'user' in message:
             if not is_uid(message['user']):
                 anon = await self.factory.tokendb.is_anonymous(message['user'])
