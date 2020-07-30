@@ -57,7 +57,7 @@ async def read_packet(stream, len_bytes=1):
 async def write_packet(stream, data, len_bytes=1):
     if len_bytes == 1:
         if len(data) <= 255:
-            stream.write(bytes([len(data)]))
+            stream.write(bytes([len(data)]) + data)
             await stream.drain()
         else:
             raise ValueError("Maximum packet size is 255")
@@ -65,14 +65,12 @@ async def write_packet(stream, data, len_bytes=1):
         if len(data) <= 65535:
             msb = len(data) >> 8
             lsb = len(data) & 255
-            stream.write(bytes([msb, lsb]))
+            stream.write(bytes([msb, lsb]) + data)
             await stream.drain()
         else:
             raise ValueError("Maximum packet size is 65535")
     else:
         raise RuntimeError("Packet length header must be 1-2 bytes")
-    stream.write(data)
-    await stream.drain()
 
 
 async def create_client(reader, writer):
