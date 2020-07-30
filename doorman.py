@@ -166,6 +166,13 @@ class Door(Client):
                 else:
                     await self.send_mqtt('user', message['user'], retain=True, dedup=True)
 
+    def status_json(self):
+        return {
+            'clientid': self.clientid,
+            'address': self.address,
+            'slug': self.slug,
+        }
+
 
 class DoorFactory(ClientFactory):
     

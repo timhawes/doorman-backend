@@ -404,6 +404,9 @@ class Client:
                 'found': False,
             })
 
+    def status_json(self):
+        return {}
+
 
 class ClientFactory:
     
@@ -437,6 +440,12 @@ class ClientFactory:
 
     async def command(self, message):
         logging.info('command received: {}'.format(message))
+
+        if message.get('cmd') == 'status':
+            output = {}
+            for clientid in self.clients_by_id.keys():
+                output[clientid] = self.clients_by_id[clientid].status_json()
+            return json.dumps(output)
 
         client = None
         if 'id' in message:

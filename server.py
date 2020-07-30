@@ -167,9 +167,10 @@ async def command_handler(reader, writer):
                 writer.write(json.dumps(response).encode())
                 await writer.drain()
             elif isinstance(response, str):
-                writer.write(response.encode())
-                if not response.endswith('\n'):
-                    writer.write(b'\n')
+                if response.endswith('\n'):
+                    writer.write(response.encode())
+                else:
+                    writer.write(response.encode() + b'\n')
                 await writer.drain()
     except Exception as e:
         writer.write('Exception: {}\n'.format(e).encode())
