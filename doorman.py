@@ -160,12 +160,16 @@ class Door(Client):
                 await self.send_mqtt('sensor/{}/door'.format(self.slug), 'open', retain=True, dedup=True, ignore_prefix=True)
 
         if 'user' in message:
-            if not is_uid(message['user']):
+            if message['user'] == '':
+                await self.send_mqtt('user', '', retain=True, dedup=True)
+            elif not is_uid(message['user']):
                 anon = await self.factory.tokendb.is_anonymous(message['user'])
                 if anon:
                     await self.send_mqtt('user', 'anonymous', retain=True, dedup=True)
                 else:
                     await self.send_mqtt('user', message['user'], retain=True, dedup=True)
+            else:
+                await self.send_mqtt('user', 'unknown', retain=True, dedup=True)
 
     def status_json(self):
         return {
