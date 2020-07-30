@@ -91,6 +91,9 @@ async def ss_reader(reader, callback, timeout=180):
             except UnicodeDecodeError:
                 logging.exception('Error processing received packet {}'.format(data))
                 return
+            except json.JSONDecodeError:
+                logging.exception('Error processing received packet {}'.format(data))
+                return
             await callback(msg)
         else:
             return
