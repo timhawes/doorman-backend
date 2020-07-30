@@ -124,6 +124,7 @@ class Door(Client):
             if time.time() - last_statistics > 60:
                 await self.send_message({'cmd': 'state_query'})
                 await self.send_message({'cmd': 'metrics_query'})
+                await self.send_message({'cmd': 'net_metrics_query'})
                 last_statistics = time.time()
             await asyncio.sleep(5)
 

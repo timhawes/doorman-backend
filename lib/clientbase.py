@@ -269,6 +269,7 @@ class Client:
             'firmware_write_error': self.handle_cmd_firmware_write_error,
             'firmware_write_ok': self.handle_cmd_firmware_write_ok,
             'metrics_info': self.handle_cmd_metrics_info,
+            'net_metrics_info': self.handle_cmd_net_metrics_info,
             'ping': self.handle_cmd_ping,
             'pong': self.handle_cmd_pong,
             'state_info': self.handle_cmd_state_info,
@@ -339,6 +340,12 @@ class Client:
         self.firmware_pending_reboot = True
 
     async def handle_cmd_metrics_info(self, message):
+        # all metadata will be sent to MQTT
+        for k, v in message.items():
+            if k not in ['cmd']:
+                await self.send_mqtt('metrics/{}'.format(k), v, retain=True, dedup=False)
+
+    async def handle_cmd_net_metrics_info(self, message):
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
