@@ -98,7 +98,7 @@ async def ss_reader(reader, callback, timeout=180):
 
 async def ss_write_callback(writer, lock, msg):
     #logging.debug("ss_writer > {}".format(msg))
-    data = json.dumps(msg).encode()
+    data = json.dumps(msg, separators=(',', ':')).encode()
     async with lock:
         await write_packet(writer, data, len_bytes=2)
 
