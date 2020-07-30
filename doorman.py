@@ -183,7 +183,6 @@ class DoorFactory(ClientFactory):
         super(DoorFactory, self).__init__()
 
     def client_from_auth(self, clientid, password, address=None):
-        logging.debug('authing client {} with password {}'.format(clientid, password))
         if self.doordb.authenticate(clientid, password):
             client = Door(clientid, factory=self, address=address, mqtt_prefix=self.mqtt_prefix)
             self.clients_by_id[clientid] = client
