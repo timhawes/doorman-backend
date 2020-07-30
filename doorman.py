@@ -105,8 +105,8 @@ class Door(Client):
     async def main_task(self):
         logging.debug("main_task() started")
 
-        last_keepalive = time.time()
-        last_file_check = 0
+        self.last_pong_received = time.time()
+        last_ping_sent = time.time()
         
         await self.send_mqtt('status', 'online', retain=True, dedup=False)
 
@@ -114,10 +114,13 @@ class Door(Client):
         last_statistics = time.time() - random.randint(15, 60)
 
         while True:
-            if time.time() - last_keepalive > 30:
+            if time.time() - last_ping_sent > 30:
                 logging.debug('sending keepalive ping')
-                await self.send_message({'cmd': 'ping', 'timestamp': time.time()})
-                last_keepalive = time.time()
+                await self.send_message({'cmd': 'ping', 'timestamp': str(time.time())})
+                last_ping_sent = time.time()
+            if time.time() - self.last_pong_received > 65:
+                self.log('no pong received for >65 seconds')
+                raise Exception('no pong received for >65 seconds')
             if time.time() - last_statistics > 60:
                 await self.send_message({'cmd': 'state_query'})
                 await self.send_message({'cmd': 'metrics_query'})

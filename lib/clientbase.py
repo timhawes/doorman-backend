@@ -359,6 +359,8 @@ class Client:
     async def handle_cmd_pong(self, message):
         """Receive response to ping."""
 
+        self.last_pong_received = time.time()
+
         if 'timestamp' in message:
             rtt = time.time() - float(message['timestamp'])
             await self.send_mqtt('rtt', str(int(rtt*1000)), retain=True, dedup=False)
