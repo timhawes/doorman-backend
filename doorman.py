@@ -85,6 +85,9 @@ class Door(Client):
         self.mqtt_prefix = mqtt_prefix
         self.mqtt_cache = {}
 
+        # metrics
+        self.metrics = {}
+
     async def reload_settings(self, create=False):
         self.slug = self.doordb.get_value(self.clientid, 'slug', self.clientid)
         self.token_groups = self.doordb.get_value(self.clientid, 'groups')

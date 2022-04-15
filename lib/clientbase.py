@@ -186,6 +186,9 @@ class Client:
             else:
                 self.factory.mqtt_queue.put((t, payload, retain), block=False)
 
+    async def set_metric(self, name, value, retain=False, dedup=False):
+        self.metrics[name] = value
+
     async def sync_task(self):
         logging.debug('sync_task: starting')
         while True:
@@ -343,12 +346,14 @@ class Client:
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
+                await self.set_metric('metrics/{}'.format(k), v, retain=True, dedup=False)
                 await self.send_mqtt('metrics/{}'.format(k), v, retain=True, dedup=False)
 
     async def handle_cmd_net_metrics_info(self, message):
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
+                await self.set_metric('metrics/{}'.format(k), v, retain=True, dedup=False)
                 await self.send_mqtt('metrics/{}'.format(k), v, retain=True, dedup=False)
 
     async def handle_cmd_ping(self, message):
@@ -385,6 +390,7 @@ class Client:
         # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ['cmd']:
+                await self.set_metric('system/{}'.format(k), v, retain=True, dedup=False)
                 await self.send_mqtt('system/{}'.format(k), v, retain=True, dedup=False)
 
     async def handle_cmd_token_auth(self, message):
