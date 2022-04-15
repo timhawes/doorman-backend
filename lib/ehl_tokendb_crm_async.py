@@ -131,9 +131,13 @@ class TokenAuthDatabase:
     async def is_anonymous(self, username):
         if username is None or username == '':
             return False
+        # old CRM uses privacy attribute
         try:
-            if self.data[username]['privacy'] > 0:
-                return True
-        except:
+            return self.data[username]['privacy']
+        except KeyError:
             pass
-        return False
+        # new CRM uses groups
+        if "sharealike" in self.data[username]['groups']:
+            return False
+        else:
+            return True
