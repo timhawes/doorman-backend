@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import copy
 import json
 import os
@@ -6,7 +6,7 @@ import time
 
 def dictupdate(d, u):
     for k, v in u.items():
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             r = dictupdate(d.get(k, {}), v)
             d[k] = r
         else:
