@@ -28,7 +28,7 @@ class YamlLoader:
 
     def load(self):
         t = os.path.getmtime(self.filename)
-        new_data = yaml.load(open(self.filename, 'r'))
+        new_data = yaml.safe_load(open(self.filename, 'r'))
         if self.defaults_key and self.defaults_key in new_data:
             # handle defaults and inheritance
             defaults = new_data[self.defaults_key]
