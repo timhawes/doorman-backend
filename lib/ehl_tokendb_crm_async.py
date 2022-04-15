@@ -40,16 +40,17 @@ class TokenAuthDatabase:
                 self.data = await response.json()
                 self._parse_data()
     
-    async def auth_token(self, uid, counter=None, groups=None, online=True, location=None):
+    async def auth_token(self, uid, counter=None, groups=None, online=True, location=None, exclude_groups=[]):
         if online:
-            return await self.auth_token_hex_online(uid, counter=counter, groups=groups, location=location)
+            return await self.auth_token_hex_online(uid, counter=counter, groups=groups, location=location, exclude_groups=exclude_groups)
         else:
-            return await self.auth_token_hex_offline(uid, counter=counter, groups=groups, location=location)
+            return await self.auth_token_hex_offline(uid, counter=counter, groups=groups, location=location, exclude_groups=exclude_groups)
 
-    async def auth_token_hex_offline(self, uid, counter=None, groups=None, location=None):
+    async def auth_token_hex_offline(self, uid, counter=None, groups=None, location=None, exclude_groups=[]):
         groups = groups or []
         if uid in self.token_to_user:
             username = self.token_to_user[uid]
+            # TODO: check exclude_groups
             for group in groups:
                 if group in self.user_to_groups[user]:
                     logging.info('token {} -> user {} -> group {} ok (database auth)'.format(uid, username, group))
@@ -57,10 +58,10 @@ class TokenAuthDatabase:
         logging.info('token {} -> user {} -> group not matched'.format(uid, username))
         return {'uid': uid, 'name': username, 'access': 0}
 
-    async def auth_token_hex_online(self, uid, counter=None, groups=None, location=None):
+    async def auth_token_hex_online(self, uid, counter=None, groups=None, location=None, exclude_groups=[]):
         groups = groups or []
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.auth_url, headers=self.headers, json={'uid': uid, 'counter': counter, 'groups': groups, 'location': location}) as response:
+            async with session.post(self.auth_url, headers=self.headers, json={'uid': uid, 'counter': counter, 'groups': groups, 'exclude_groups': exclude_groups, 'location': location}) as response:
                 try:
                     response = await response.json()
                 except aiohttp.client_exceptions.ContentTypeError:
@@ -88,7 +89,9 @@ class TokenAuthDatabase:
         uids = {}
         for username in self.data.keys():
             for group in self.data[username]['groups']:
-                if group in groups:
+                if group in exclude_groups:
+                    logging.info('excluding user {} due to group {}'.format(username, group))
+                elif group in groups:
                     for uid in self.data[username]['tokens']:
                         uids[uid] = True
         output = bytes([1]) # version 1
@@ -99,12 +102,14 @@ class TokenAuthDatabase:
                 output += bytes([uidlen]) + uid
         return output
 
-    def token_database_v2(self, groups=None, hash_length=4, salt=b''):
+    def token_database_v2(self, groups=None, hash_length=4, salt=b'', exclude_groups=[]):
         groups = groups or []
         uids = {}
         for username in self.data.keys():
             for group in self.data[username]['groups']:
-                if group in groups:
+                if group in exclude_groups:
+                    logging.info('excluding user {} due to group {}'.format(username, group))
+                elif group in groups:
                     for uid in self.data[username]['tokens']:
                         uids[uid] = username
         output = bytes([2, hash_length, len(salt)])

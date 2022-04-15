@@ -392,7 +392,8 @@ class Client:
 
         result = await self.tokendb.auth_token(
             message['uid'], 
-            groups=self.token_groups, 
+            groups=self.token_groups,
+            exclude_groups=self.token_exclude_groups,
             counter=message.get('ntag_counter', None),
             location='{}:{}'.format(self.__class__.__name__.lower(), self.slug),
         )
