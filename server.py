@@ -211,7 +211,8 @@ async def standard_server():
 
 async def ssl_server():
 
-    sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS)
+    sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
+    sslctx.set_ciphers("TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:AES256-SHA256")
     sslctx.load_cert_chain(settings.server_cert_file, settings.server_key_file)
 
     server = await asyncio.start_server(
