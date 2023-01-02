@@ -37,9 +37,15 @@ class TokenAuthDatabase:
     async def load(self):
         async with aiohttp.ClientSession() as session:
             async with session.get(self.download_url, headers=self.headers) as response:
-                self.data = await response.json()
-                self._parse_data()
-    
+                try:
+                    self.data = await response.json()
+                    self._parse_data()
+                except aiohttp.client_exceptions.ContentTypeError:
+                    if self.data:
+                        logging.exception('ignoring exception while re-loading data')
+                    else:
+                        raise
+
     async def auth_token(self, uid, counter=None, groups=None, online=True, location=None, exclude_groups=[]):
         if online:
             return await self.auth_token_hex_online(uid, counter=counter, groups=groups, location=location, exclude_groups=exclude_groups)
