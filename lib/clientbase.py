@@ -444,7 +444,12 @@ class Client:
 
         self.logger.info("recv {}".format(self.loggable_message(message)))
 
-        method = getattr(self, f"handle_cmd_{message['cmd']}")
+        try:
+            method = getattr(self, f"handle_cmd_{message['cmd']}")
+        except AttributeError:
+            self.logger.info(f"Ignoring unknown cmd {message['cmd']}")
+            return
+
         if callable(method):
             await method(message)
 
