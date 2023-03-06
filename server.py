@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 
 import asyncio
-import dbm
 import json
 import logging
 import os
+import queue
 import ssl
 import sys
-import time
-import queue
 import threading
+import time
 
+import apprise
 import paho.mqtt.client as mqtt
+import requests
 
 sys.path.insert(0, 'lib')
 
-import doorman
 from clientdb import ClientDB
 from ehl_tokendb_crm_async import TokenAuthDatabase
+
+import doorman
 
 
 class settings:
@@ -37,6 +39,8 @@ class settings:
     api_query_url = os.environ.get('API_QUERY_URL')
     api_token = os.environ.get('API_TOKEN')
     command_socket = os.environ.get('COMMAND_SOCKET')
+    apprise_events = os.environ.get('APPRISE_EVENTS')
+    discord_events = os.environ.get('DISCORD_EVENTS')
     if os.environ.get('DEBUG_MODE'):
         debug = True
     else:
@@ -145,7 +149,7 @@ async def ss_handler(reader, writer):
         )
     except ConnectionResetError as e:
         await client.handle_disconnect(reason='connection reset')
-    except asyncio.streams.IncompleteReadError as e:
+    except asyncio.exceptions.IncompleteReadError as e:
         await client.handle_disconnect(reason='incomplete read')
     except asyncio.TimeoutError as e:
         await client.handle_disconnect(reason='receive timeout')
@@ -212,7 +216,7 @@ async def standard_server():
 async def ssl_server():
 
     sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
-    sslctx.set_ciphers("TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:AES256-SHA256")
+    sslctx.set_ciphers("TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:AES256-SHA256")
     sslctx.load_cert_chain(settings.server_cert_file, settings.server_key_file)
 
     server = await asyncio.start_server(
@@ -270,6 +274,27 @@ class MqttThread(threading.Thread):
                 time.sleep(1)
 
 
+class EventLoggingThread(threading.Thread):
+    def run(self):
+        if settings.apprise_events:
+            apobj = apprise.Apprise()
+            apobj.add(settings.apprise_events)
+            apobj.notify("backend started")
+        while True:
+            event = event_queue.get()
+            event2 = event.copy()
+            for k in ["time", "millis", "clientid", "device", "event"]:
+                if k in event2:
+                    del event2[k]
+            timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(event["time"]))
+            remaining = json.dumps(event2, sort_keys=True) if event2 else ""
+            message = f"{timestamp} {event['device']} {event['event']} {remaining}"
+            if settings.apprise_events:
+                apobj.notify(body=message)
+            if settings.discord_events:
+                requests.post(settings.discord_events, json={"content": message})
+
+
 if settings.mqtt_host:
     mqtt_queue = queue.Queue()
     mqtt_thread = MqttThread()
@@ -277,6 +302,11 @@ if settings.mqtt_host:
     mqtt_thread.start()
 else:
     mqtt_queue = None
+
+event_queue = queue.Queue()
+event_logging_thread = EventLoggingThread()
+event_logging_thread.daemon = True
+event_logging_thread.start()
 
 clientdb = ClientDB(settings.config_yaml)
 tokendb = TokenAuthDatabase(settings.api_download_url,
@@ -286,6 +316,7 @@ tokendb = TokenAuthDatabase(settings.api_download_url,
 clientfactory = doorman.DoorFactory(clientdb, tokendb)
 clientfactory.mqtt_queue = mqtt_queue
 clientfactory.mqtt_prefix = settings.mqtt_prefix
+clientfactory.event_queue = event_queue
 
 if settings.debug:
     logging.basicConfig(level=logging.DEBUG)

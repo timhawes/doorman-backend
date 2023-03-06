@@ -1,9 +1,10 @@
-import aiohttp
 import binascii
 import hashlib
 import logging
-import time
 
+import aiohttp
+from tokendbformat import encode_tokendb_v1, encode_tokendb_v2
+# from cdbformat import encode_cdb
 
 class TokenAuthDatabase:
 
@@ -90,7 +91,7 @@ class TokenAuthDatabase:
         #logging.info('token {} -> user {} -> group not matched'.format(uid, username))
         #return {'uid': uid, 'name': username, 'access': 0}
 
-    def token_database_v1(self, groups=None):
+    def token_database_v1(self, groups=None, exclude_groups=[]):
         groups = groups or []
         uids = {}
         for username in self.data.keys():
@@ -100,13 +101,7 @@ class TokenAuthDatabase:
                 elif group in groups:
                     for uid in self.data[username]['tokens']:
                         uids[uid] = True
-        output = bytes([1]) # version 1
-        for uid in sorted(uids.keys()):
-            uid = binascii.unhexlify(uid)
-            uidlen = len(uid)
-            if uidlen == 4 or uidlen == 7:
-                output += bytes([uidlen]) + uid
-        return output
+        return encode_tokendb_v1(uids)
 
     def token_database_v2(self, groups=None, hash_length=4, salt=b'', exclude_groups=[]):
         groups = groups or []
@@ -118,21 +113,19 @@ class TokenAuthDatabase:
                 elif group in groups:
                     for uid in self.data[username]['tokens']:
                         uids[uid] = username
-        output = bytes([2, hash_length, len(salt)])
-        output += salt
-        for hexuid in sorted(uids.keys()):
-            uid = binascii.unhexlify(hexuid)
-            uidlen = len(uid)
-            if uidlen == 4 or uidlen == 7:
-                output += hashlib.md5(salt + uid).digest()[0:hash_length]
-                output += bytes([1])
-                try:
-                    user = uids[hexuid].encode('us-ascii')
-                    output += bytes([len(user)])
-                    output += user
-                except UnicodeEncodeError:
-                    output += bytes([0])
-        return output
+        return encode_tokendb_v2(uids, hash_length=hash_length, salt=salt)
+
+    # def cdb_database(self, groups=None, exclude_groups=[]):
+    #     groups = groups or []
+    #     uids = {}
+    #     for username in self.data.keys():
+    #         for group in self.data[username]['groups']:
+    #             if group in exclude_groups:
+    #                 logging.info('excluding user {} due to group {}'.format(username, group))
+    #             elif group in groups:
+    #                 for uid in self.data[username]['tokens']:
+    #                     uids[uid] = username
+    #     return encode_cdb(uids)
 
     async def is_anonymous(self, username):
         if username is None or username == '':
