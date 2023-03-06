@@ -4,6 +4,7 @@ import json
 import os
 import time
 
+
 def dictupdate(d, u):
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
@@ -13,8 +14,8 @@ def dictupdate(d, u):
             d[k] = u[k]
     return d
 
-class JsonLoader:
 
+class JsonLoader:
     data = {}
     version = 0
 
@@ -28,7 +29,7 @@ class JsonLoader:
 
     def load(self):
         t = os.path.getmtime(self.filename)
-        new_data = json.load(open(self.filename, 'r'))
+        new_data = json.load(open(self.filename, "r"))
         if self.defaults_key and self.defaults_key in new_data:
             # handle defaults and inheritance
             defaults = new_data[self.defaults_key]
@@ -51,9 +52,11 @@ class JsonLoader:
                 self.load()
                 return True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import time
-    j = JsonLoader('test.json', defaults_key='DEFAULTS')
+
+    j = JsonLoader("test.json", defaults_key="DEFAULTS")
     print(j.data)
     while True:
         time.sleep(1)

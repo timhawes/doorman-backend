@@ -11,9 +11,9 @@ if len(sys.argv) < 2:
     print(f"Usage: {sys.argv[0]} id cmd [message]")
     sys.exit(1)
 
-packet = {'id': sys.argv[1], 'cmd': sys.argv[2]}
+packet = {"id": sys.argv[1], "cmd": sys.argv[2]}
 if len(sys.argv) >= 4:
-    packet['message'] = json.loads(sys.argv[3])
+    packet["message"] = json.loads(sys.argv[3])
 
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect(COMMAND_SOCKET)

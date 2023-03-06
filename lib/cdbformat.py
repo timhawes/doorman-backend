@@ -14,7 +14,7 @@ def encode_cdb(data):
             for hexuid in sorted(data.keys()):
                 uid = binascii.unhexlify(hexuid)
                 try:
-                    user = data[hexuid].encode('us-ascii')
+                    user = data[hexuid].encode("us-ascii")
                 except UnicodeEncodeError:
                     user = b""
                 writer.put(bytes([0x01]) + uid, bytes([0x01]) + user)
