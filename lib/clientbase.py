@@ -386,7 +386,7 @@ class Client:
                     )
                     self.logger.debug("waiting for firmware sync to complete")
                     await self.firmware_complete.wait()
-                    self.logging.info("firmware sync complete")
+                    self.logger.info("firmware sync complete")
                     self.log_event(
                         {
                             "event": "firmware_sync_complete",
