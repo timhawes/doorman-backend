@@ -11,8 +11,8 @@ import threading
 import time
 
 import apprise
+import disnake
 import paho.mqtt.client as mqtt
-import requests
 
 sys.path.insert(0, "lib")
 
@@ -20,6 +20,9 @@ from clientdb import ClientDB
 from ehl_tokendb_crm_async import TokenAuthDatabase
 
 import doorman
+
+
+DEFAULT_NOTIFY_EVENTS = "backend_start connect disconnect restarted power_mains power_battery file_sync_start file_sync_complete firmware_sync_start firmware_sync_complete exit_request_ignored"
 
 
 class settings:
@@ -39,8 +42,12 @@ class settings:
     api_query_url = os.environ.get("API_QUERY_URL")
     api_token = os.environ.get("API_TOKEN")
     command_socket = os.environ.get("COMMAND_SOCKET")
-    apprise_events = os.environ.get("APPRISE_EVENTS")
-    discord_events = os.environ.get("DISCORD_EVENTS")
+    apprise_urls = os.environ.get("APPRISE_URL", "").strip().split()
+    apprise_events = os.environ.get("APPRISE_EVENTS", "").strip().split()
+    discord_webhook = os.environ.get("DISCORD_WEBHOOK")
+    discord_events = (
+        os.environ.get("DISCORD_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
+    )
     if os.environ.get("DEBUG_MODE"):
         debug = True
     else:
@@ -286,23 +293,36 @@ class MqttThread(threading.Thread):
 
 class EventLoggingThread(threading.Thread):
     def run(self):
-        if settings.apprise_events:
+        event_queue.put(
+            {"event": "backend_start", "device": "*backend*", "time": time.time()}
+        )
+        if settings.discord_webhook:
+            webhook = disnake.SyncWebhook.from_url(settings.discord_webhook)
+        if settings.apprise_urls:
             apobj = apprise.Apprise()
-            apobj.add(settings.apprise_events)
-            apobj.notify("backend started")
+            for url in settings.apprise_urls:
+                apobj.add(url)
         while True:
             event = event_queue.get()
             event2 = event.copy()
             for k in ["time", "millis", "clientid", "device", "event"]:
                 if k in event2:
                     del event2[k]
-            timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(event["time"]))
+            timestamp = time.strftime("%H:%M:%SZ", time.gmtime(event["time"]))
             remaining = json.dumps(event2, sort_keys=True) if event2 else ""
             message = f"{timestamp} {event['device']} {event['event']} {remaining}"
-            if settings.apprise_events:
-                apobj.notify(body=message)
-            if settings.discord_events:
-                requests.post(settings.discord_events, json={"content": message})
+            if settings.apprise_urls:
+                if (
+                    "all" in settings.apprise_events
+                    or event["event"] in settings.apprise_events
+                ):
+                    apobj.notify(body=message)
+            if settings.discord_webhook:
+                if (
+                    "all" in settings.discord_events
+                    or event["event"] in settings.discord_events
+                ):
+                    webhook.send(message)
 
 
 if settings.mqtt_host:

@@ -9,6 +9,7 @@ paho-mqtt = "*"
 apprise = "*"
 pyyaml = "*"
 pure-cdb = "*"
+disnake = "*"
 
 [dev-packages]
 
