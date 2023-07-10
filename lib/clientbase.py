@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import os
+import random
 import time
 
 
@@ -159,6 +160,15 @@ class Client:
         # callback for sending an outbound message object
         # will be populated by the asyncio protocol handler
         self.write_callback = None
+
+        # intervals
+        self.ping_interval = 30
+        self.net_metrics_query_interval = 60
+
+        # timestamps
+        self.last_ping_sent = time.time()
+        self.last_pong_received = time.time()
+        self.last_net_metrics_query = time.time() - random.randint(0, 45)
 
         # remote state for syncing
         self.remote_files = {}
@@ -627,6 +637,17 @@ class Client:
 
     def status_json(self):
         return {}
+
+    async def loop(self):
+        if time.time() - self.last_ping_sent > self.ping_interval:
+            await self.send_message({"cmd": "ping", "timestamp": str(time.time())})
+            self.last_ping_sent = time.time()
+        if time.time() - self.last_pong_received > 65:
+            self.log("no pong received for >65 seconds")
+            raise Exception("no pong received for >65 seconds")
+        if time.time() - self.last_net_metrics_query > self.net_metrics_query_interval:
+            await self.send_message({"cmd": "net_metrics_query"})
+            self.last_net_metrics_query = time.time()
 
 
 class ClientFactory:
