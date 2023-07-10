@@ -162,10 +162,12 @@ class Client:
         self.write_callback = None
 
         # intervals
+        self.time_send_interval = 3600
         self.ping_interval = 30
         self.net_metrics_query_interval = 60
 
         # timestamps
+        self.last_time_sent = time.time() - random.randint(0, 1800)
         self.last_ping_sent = time.time()
         self.last_pong_received = time.time()
         self.last_net_metrics_query = time.time() - random.randint(0, 45)
@@ -639,6 +641,9 @@ class Client:
         return {}
 
     async def loop(self):
+        if time.time() - self.last_time_sent > self.time_send_interval:
+            await self.send_message({"cmd": "time", "time": int(time.time())})
+            self.last_time_sent = time.time()
         if time.time() - self.last_ping_sent > self.ping_interval:
             await self.send_message({"cmd": "ping", "timestamp": str(time.time())})
             self.last_ping_sent = time.time()
