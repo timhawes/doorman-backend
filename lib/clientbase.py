@@ -18,6 +18,16 @@ def is_uid(uid):
     return True
 
 
+def render_file(filename, data):
+    if type(data) is bytes:
+        return data
+    if type(data) is str:
+        return data.encode()
+    if filename.endswith(".json") and type(data) in [list, dict]:
+        return json.dumps(data, sort_keys=True).encode()
+    raise ValueError(f"Invalid data for {filename}")
+
+
 class BaseSyncableFile:
     def __init__(self):
         self.remote_md5 = None
@@ -222,6 +232,14 @@ class Client:
             exclude_groups=self.token_exclude_groups,
             salt=self.clientdb.get_value(self.clientid, "token_salt").encode(),
         )
+        for filename, filedata in self.clientdb.get_value(
+            self.clientid, "files"
+        ).items():
+            content = render_file(filename, filedata)
+            if create:
+                self.files[filename] = SyncableStringFile(filename, content)
+            else:
+                self.files[filename].update(content)
         if create:
             self.files["config.json"] = SyncableStringFile("config.json", config_json)
             self.files["tokens.dat"] = SyncableStringFile("tokens.dat", token_data)
