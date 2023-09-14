@@ -28,6 +28,33 @@ def render_file(filename, data):
     raise ValueError(f"Invalid data for {filename}")
 
 
+def legacy_config(files):
+    net_map = {
+        "host": "server_host",
+        "port": "server_port",
+        "password": "server_password",
+        "tls": "server_tls_enabled",
+        "tls_verify": "server_tls_verify",
+        "tls_fingerprint1": "server_fingerprint1",
+        "tls_fingerprint2": "server_fingerprint2",
+        "watchdog_time": "network_watchdog_time",
+    }
+    wifi_map = {
+        "ssid": "ssid",
+        "password": "wpa_password",
+    }
+    data = {}
+    for k, v in files["app.json"].items():
+        data[k] = v
+    for k, v in net_map.items():
+        if k in files["net.json"]:
+            data[net_map[k]] = files["net.json"][k]
+    for k, v in wifi_map.items():
+        if k in files["wifi.json"]:
+            data[wifi_map[k]] = files["wifi.json"][k]
+    return data
+
+
 class BaseSyncableFile:
     def __init__(self):
         self.remote_md5 = None
@@ -226,7 +253,6 @@ class Client:
         self.token_exclude_groups = self.clientdb.get_value(
             self.clientid, "exclude_groups"
         )
-        config_json = json.dumps(self.clientdb.get_config(self.clientid)).encode()
         token_data = self.tokendb.token_database_v2(
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
@@ -240,11 +266,17 @@ class Client:
                 self.files[filename] = SyncableStringFile(filename, content)
             else:
                 self.files[filename].update(content)
+        legacy_config_json = render_file(
+            "config.json",
+            legacy_config(self.clientdb.get_value(self.clientid, "files")),
+        )
         if create:
-            self.files["config.json"] = SyncableStringFile("config.json", config_json)
+            self.files["config.json"] = SyncableStringFile(
+                "config.json", legacy_config_json
+            )
             self.files["tokens.dat"] = SyncableStringFile("tokens.dat", token_data)
         else:
-            self.files["config.json"].update(config_json)
+            self.files["config.json"].update(legacy_config_json)
             self.files["tokens.dat"].update(token_data)
         firmware_filename = self.clientdb.get_value(self.clientid, "firmware")
         if firmware_filename:
