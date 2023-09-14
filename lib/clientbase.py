@@ -255,6 +255,8 @@ class Client:
             "clientid": self.clientid,
             "address": self.address,
             "slug": self.slug,
+            "metrics": self.metrics,
+            "states": self.states,
         }
 
     async def set_state(self, states):
@@ -654,9 +656,6 @@ class Client:
                     "found": False,
                 }
             )
-
-    def status_json(self):
-        return {}
 
     async def loop(self):
         if time.time() - self.last_time_sent > self.time_send_interval:
