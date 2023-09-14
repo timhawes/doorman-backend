@@ -6,10 +6,19 @@ class ClientDB:
         self.client_loader = yamlloader.YamlLoader(config_yaml, defaults_key="DEFAULTS")
 
     def authenticate(self, clientid, password):
+        if len(clientid) == 0:
+            return False
+        if len(password) == 0:
+            return False
         self.client_loader.check()
         if clientid in self.client_loader.data:
-            if password == self.client_loader.data[clientid]["password"]:
-                return True
+            our_password = self.client_loader.data[clientid]["password"]
+            if isinstance(our_password, str):
+                if password == our_password:
+                    return True
+            if isinstance(our_password, list):
+                if password in our_password:
+                    return True
         return False
 
     def get_value(self, clientid, k, default=None):
