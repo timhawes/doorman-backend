@@ -183,6 +183,7 @@ class Client:
         self.clientdb = factory.clientdb
         self.tokendb = factory.tokendb
         self.address = address
+        self.connected = True
 
         # initial value for slug
         self.slug = self.clientdb.get_value(self.clientid, "slug", self.clientid)
@@ -286,6 +287,7 @@ class Client:
         return {
             "clientid": self.clientid,
             "address": self.address,
+            "connected": self.connected,
             "slug": self.slug,
             "metrics": self.metrics,
             "states": self.states,
@@ -491,6 +493,7 @@ class Client:
         await self.send_message({"cmd": "system_query"})
 
     async def handle_disconnect(self, reason=None):
+        self.connected = False
         if self.factory.client_from_id(self.clientid) is self:
             self.logger.info("disconnect: {} (final)".format(reason))
             self.log_event({"event": "disconnect"})
@@ -739,10 +742,17 @@ class ClientFactory:
     async def command(self, message):
         logging.info("command received: {}".format(message))
 
-        if message.get("cmd") == "list":
+        if message.get("cmd") == "list-all":
             output = {}
             for clientid in self.clients_by_id.keys():
                 output[clientid] = self.clients_by_id[clientid].slug
+            return json.dumps(output, sort_keys=True)
+
+        if message.get("cmd") == "list":
+            output = {}
+            for clientid in self.clients_by_id.keys():
+                if self.clients_by_id[clientid].connected:
+                    output[clientid] = self.clients_by_id[clientid].slug
             return json.dumps(output, sort_keys=True)
 
         if message.get("cmd") == "status":
