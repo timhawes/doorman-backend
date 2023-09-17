@@ -643,14 +643,15 @@ class Client:
 
         if message.get("restarted") is True:
             timestamp = time.time() - (message["millis"] / 1000)
-            self.log_event(
-                {
-                    "event": "restarted",
-                    "time": timestamp,
-                    "esp_reset_reason": message.get("esp_reset_reason"),
-                    "esp_reset_info": message.get("esp_reset_info"),
-                }
-            )
+            event = {
+                "event": "restarted",
+                "time": timestamp,
+                "esp_reset_reason": message.get("esp_reset_reason"),
+                "esp_reset_info": message.get("esp_reset_info"),
+            }
+            if "net_reset_info" in message:
+                event["net_reset_info"] = message["net_reset_info"]
+            self.log_event(event)
 
         # all metadata will be sent to MQTT
         for k, v in message.items():
