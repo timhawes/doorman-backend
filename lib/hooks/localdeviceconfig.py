@@ -27,6 +27,8 @@ class LocalDeviceConfig(BaseHook):
     async def get_device(self, clientid):
         if len(clientid) == 0:
             return None
+        if clientid == "DEFAULTS":
+            return None
         async with self.config_yaml as data:
             return merge_dicts([data[clientid], data["DEFAULTS"]])
 
