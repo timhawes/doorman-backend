@@ -206,7 +206,7 @@ class Client:
 
         # timestamps
         self.last_time_sent = time.time() - random.randint(0, 1800)
-        self.last_ping_sent = time.time()
+        self.last_ping_sent = time.time() - random.randint(0, int(self.ping_interval * 0.75))
         self.last_pong_received = time.time()
         self.last_net_metrics_query = time.time() - random.randint(0, 45)
 
