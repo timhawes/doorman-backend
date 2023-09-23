@@ -4,22 +4,19 @@ import asyncio
 import json
 import logging
 import os
-import queue
 import ssl
 import sys
-import threading
-import time
-
-import apprise
-import disnake
-import paho.mqtt.client as mqtt
 
 sys.path.insert(0, "lib")
 
-from clientdb import ClientDB
-from ehl_tokendb_crm_async import TokenAuthDatabase
-
+from hooks.dispatcher import HookDispatcher
+from hooks.localdeviceconfig import LocalDeviceConfig
+from hooks.hacklabtokens import HacklabTokens
+from hooks.mqttmetrics import MqttMetrics
+from hooks.discordevents import DiscordEvents
+from hooks.localtokens import LocalTokens
 import doorman
+import tokendb
 
 
 DEFAULT_NOTIFY_EVENTS = "backend_start connect disconnect restarted power_mains power_battery file_sync_start file_sync_complete firmware_sync_start firmware_sync_complete exit_request_ignored"
@@ -28,7 +25,6 @@ DEFAULT_NOTIFY_EVENTS = "backend_start connect disconnect restarted power_mains 
 class settings:
     mqtt_host = os.environ.get("MQTT_HOST")
     mqtt_port = int(os.environ.get("MQTT_PORT", "1883"))
-    mqtt_global_prefix = os.environ.get("MQTT_GLOBAL_PREFIX", "test/")
     mqtt_prefix = os.environ.get("MQTT_PREFIX", "doorman/")
     server_cert_file = os.environ.get("SERVER_CERT_FILE")
     server_key_file = os.environ.get("SERVER_KEY_FILE")
@@ -37,9 +33,9 @@ class settings:
     listen_ssl_port = int(os.environ.get("LISTEN_SSL_PORT", 14261))
     firmware_path = os.environ.get("FIRMWARE_PATH", "firmware")
     config_yaml = os.environ.get("CONFIG_YAML", "config/config.yaml")
+    local_tokens_file = os.environ.get("LOCAL_TOKENS_FILE")
     api_download_url = os.environ.get("API_DOWNLOAD_URL")
     api_auth_url = os.environ.get("API_AUTH_URL")
-    api_query_url = os.environ.get("API_QUERY_URL")
     api_token = os.environ.get("API_TOKEN")
     command_socket = os.environ.get("COMMAND_SOCKET")
     apprise_urls = os.environ.get("APPRISE_URL", "").strip().split()
@@ -249,85 +245,15 @@ async def ssl_server():
         await server.serve_forever()
 
 
-async def reloader():
-    while True:
-        await asyncio.sleep(300)
-        await tokendb.load()
-
-
 async def main():
-    await tokendb.load()
-
     try:
         await gather_group(
             command_server(),
             standard_server(),
             ssl_server(),
-            reloader(),
         )
     except Exception as e:
         logging.exception("gather exception")
-
-
-class MqttThread(threading.Thread):
-    def on_connect(self, *args, **kwargs):
-        pass
-
-    def on_message(self, *args, **kwargs):
-        pass
-
-    def run(self):
-        while True:
-            try:
-                m = mqtt.Client()
-                m.on_connect = self.on_connect
-                m.on_message = self.on_message
-                m.connect(settings.mqtt_host, settings.mqtt_port)
-                m.loop_start()
-                while True:
-                    topic, payload, retain = mqtt_queue.get()
-                    m.publish(
-                        "{}{}".format(settings.mqtt_global_prefix, topic),
-                        payload,
-                        retain=retain,
-                    )
-            except Exception as e:
-                logging.exception("Exception in MqttThread")
-                time.sleep(1)
-
-
-class EventLoggingThread(threading.Thread):
-    def run(self):
-        event_queue.put(
-            {"event": "backend_start", "device": "*backend*", "time": time.time()}
-        )
-        if settings.discord_webhook:
-            webhook = disnake.SyncWebhook.from_url(settings.discord_webhook)
-        if settings.apprise_urls:
-            apobj = apprise.Apprise()
-            for url in settings.apprise_urls:
-                apobj.add(url)
-        while True:
-            event = event_queue.get()
-            event2 = event.copy()
-            for k in ["time", "millis", "clientid", "device", "event"]:
-                if k in event2:
-                    del event2[k]
-            timestamp = time.strftime("%H:%M:%SZ", time.gmtime(event["time"]))
-            remaining = json.dumps(event2, sort_keys=True) if event2 else ""
-            message = f"{timestamp} {event['device']} {event['event']} {remaining}"
-            if settings.apprise_urls:
-                if (
-                    "all" in settings.apprise_events
-                    or event["event"] in settings.apprise_events
-                ):
-                    apobj.notify(body=message)
-            if settings.discord_webhook:
-                if (
-                    "all" in settings.discord_events
-                    or event["event"] in settings.discord_events
-                ):
-                    webhook.send(message)
 
 
 if settings.debug:
@@ -335,29 +261,28 @@ if settings.debug:
 else:
     logging.basicConfig(level=logging.INFO)
 
+hooks = HookDispatcher()
+hooks.add_hook(LocalDeviceConfig(settings.config_yaml))
+if settings.local_tokens_file:
+    hooks.add_hook(LocalTokens(settings.local_tokens_file))
+if settings.api_download_url and settings.api_auth_url and settings.api_token:
+    hooks.add_hook(
+        HacklabTokens(
+            settings.api_download_url, settings.api_auth_url, settings.api_token
+        )
+    )
 if settings.mqtt_host:
-    mqtt_queue = queue.Queue()
-    mqtt_thread = MqttThread()
-    mqtt_thread.daemon = True
-    mqtt_thread.start()
-else:
-    mqtt_queue = None
+    hooks.add_hook(
+        MqttMetrics(
+            settings.mqtt_host, port=settings.mqtt_port, prefix=settings.mqtt_prefix
+        )
+    )
+if settings.discord_webhook:
+    hooks.add_hook(
+        DiscordEvents(settings.discord_webhook, discord_events=settings.discord_events)
+    )
 
-event_queue = queue.Queue()
-event_logging_thread = EventLoggingThread()
-event_logging_thread.daemon = True
-event_logging_thread.start()
-
-clientdb = ClientDB(settings.config_yaml)
-tokendb = TokenAuthDatabase(
-    settings.api_download_url,
-    settings.api_query_url,
-    settings.api_auth_url,
-    settings.api_token,
-)
-clientfactory = doorman.DoorFactory(clientdb, tokendb)
-clientfactory.mqtt_queue = mqtt_queue
-clientfactory.mqtt_prefix = settings.mqtt_prefix
-clientfactory.event_queue = event_queue
+tokendb = tokendb.TokenAuthDatabase(hooks)
+clientfactory = doorman.DoorFactory(hooks, tokendb)
 
 asyncio.run(main())

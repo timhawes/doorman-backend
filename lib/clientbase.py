@@ -178,18 +178,18 @@ class SyncableDiskFile(BaseSyncableFile):
 
 
 class Client:
-    def __init__(self, clientid, factory, address, mqtt_prefix="undefined/"):
+    def __init__(self, clientid, factory, config, hooks, address):
         self.clientid = clientid
         self.factory = factory
-        self.clientdb = factory.clientdb
-        self.tokendb = factory.tokendb
+        self.config = config
         self.address = address
+        self.hooks = hooks
         self.connected = True
         self.connect_start = time.time()
         self.connect_finish = None
 
         # initial value for slug
-        self.slug = self.clientdb.get_value(self.clientid, "slug", self.clientid)
+        self.slug = self.config.get("slug", self.clientid)
 
         # configure logging
         self.logger = logging.getLogger(f"client.{self.clientid}/{self.slug}")
@@ -213,7 +213,9 @@ class Client:
             0, int(self.ping_interval * 0.75)
         )
         self.last_pong_received = time.time()
-        self.last_net_metrics_query = time.time() - random.randint(0, 45)
+        self.last_net_metrics_query = time.time() - random.randint(
+            0, int(self.net_metrics_query_interval * 0.75)
+        )
 
         # remote state for syncing
         self.remote_files = {}
@@ -228,10 +230,6 @@ class Client:
         self.firmware_complete = asyncio.Event()
         self.firmware_complete.clear()
         self.firmware_pending_reboot = False
-
-        # mqtt
-        self.mqtt_prefix = mqtt_prefix
-        self.mqtt_cache = {}
 
         # metrics
         self.metrics = {}
@@ -254,39 +252,35 @@ class Client:
             return "<{} clientid={}>".format(self.__class__.__name__, self.clientid)
 
     async def reload_settings(self, create=False):
-        self.slug = self.clientdb.get_value(self.clientid, "slug", self.clientid)
+        self.config = await self.hooks.get_device(self.clientid)
 
-        self.token_groups = self.clientdb.get_value(self.clientid, "groups")
-        self.token_exclude_groups = self.clientdb.get_value(
-            self.clientid, "exclude_groups"
-        )
-        token_data = self.tokendb.token_database_v2(
+        self.token_groups = self.config.get("groups")
+        self.token_exclude_groups = self.config.get("exclude_groups")
+        token_data = await self.factory.tokendb.token_database_v2(
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
-            salt=self.clientdb.get_value(self.clientid, "token_salt").encode(),
+            salt=self.config.get("token_salt").encode(),
         )
         if create:
             self.files["tokens.dat"] = SyncableStringFile("tokens.dat", token_data)
         else:
             self.files["tokens.dat"].update(token_data)
 
-        for filename, filedata in self.clientdb.get_value(
-            self.clientid, "files"
-        ).items():
+        for filename, filedata in self.config.get("files").items():
             content = render_file(filename, filedata)
             if create:
                 self.files[filename] = SyncableStringFile(filename, content)
             else:
                 self.files[filename].update(content)
 
-        firmware_filename = self.clientdb.get_value(self.clientid, "firmware")
+        firmware_filename = self.config.get("firmware")
         if firmware_filename:
             self.firmware = await self.get_firmware(firmware_filename)
 
         try:
             legacy_config_json = render_file(
                 "config.json",
-                legacy_config(self.clientdb.get_value(self.clientid, "files")),
+                legacy_config(self.config.get("files")),
             )
             if create:
                 self.files["config.json"] = SyncableStringFile(
@@ -319,9 +313,10 @@ class Client:
             status["connect_uptime"] = int(time.time() - self.connect_start)
         return status
 
-    async def set_state(self, states):
+    async def set_states(self, states):
         changes = []
         for k, v in states.items():
+            await self.factory.hooks.log_state(self.slug, k, v)
             try:
                 old_value = self.states[k]
                 if v != old_value:
@@ -346,14 +341,13 @@ class Client:
             )
         )
 
-    def log_event(self, event):
+    async def log_event(self, event):
         if event.get("time") is None:
             event["time"] = time.time()
         event["clientid"] = self.clientid
         event["device"] = self.slug
         self.logger.info(f"event {event}")
-        if self.factory.event_queue:
-            self.factory.event_queue.put(event, block=False)
+        await self.factory.hooks.log_event(event)
 
     async def get_firmware(self, filename):
         """Prepare file handle and metadata for the specified firmware file."""
@@ -384,24 +378,12 @@ class Client:
         self.logger.info("send {}".format(self.loggable_message(message)))
         await self.send_message(message)
 
-    async def send_mqtt(
-        self, topic, payload, retain=False, dedup=False, ignore_prefix=False
-    ):
-        if ignore_prefix:
-            t = topic
-        else:
-            t = self.mqtt_prefix + self.slug + "/" + topic
-        self.logger.debug("mqtt {} {} {}".format(topic, payload, retain))
-        if self.factory.mqtt_queue:
-            if retain:
-                if dedup is False or payload != self.mqtt_cache.get(t):
-                    self.factory.mqtt_queue.put((t, payload, retain), block=False)
-                    self.mqtt_cache[t] = payload
-            else:
-                self.factory.mqtt_queue.put((t, payload, retain), block=False)
-
-    async def set_metric(self, name, value, retain=False, dedup=False):
+    async def set_metric(self, name, value):
         self.metrics[name] = value
+        if value is None:
+            await self.factory.hooks.log_metric(self.slug, name, "")
+        else:
+            await self.factory.hooks.log_metric(self.slug, name, value)
 
     async def sync_task(self):
         self.logger.debug("sync_task: starting")
@@ -423,7 +405,7 @@ class Client:
                     self.logger.debug("metadata is ready")
 
                 if self.files[filename].needSync():
-                    self.log_event(
+                    await self.log_event(
                         {
                             "event": "file_sync_start",
                             "filename": filename,
@@ -442,7 +424,7 @@ class Client:
                     )
                     self.logger.debug("waiting for sync to complete")
                     await self.files[filename].waitForSync()
-                    self.log_event(
+                    await self.log_event(
                         {
                             "event": "file_sync_complete",
                             "filename": filename,
@@ -461,7 +443,7 @@ class Client:
                     self.logger.info("firmware is up to date (pending reboot)")
                 else:
                     self.logger.info("firmware sync started")
-                    self.log_event(
+                    await self.log_event(
                         {
                             "event": "firmware_sync_start",
                             "filename": self.firmware["filename"],
@@ -479,7 +461,7 @@ class Client:
                     self.logger.debug("waiting for firmware sync to complete")
                     await self.firmware_complete.wait()
                     self.logger.info("firmware sync complete")
-                    self.log_event(
+                    await self.log_event(
                         {
                             "event": "firmware_sync_complete",
                             "filename": self.firmware["filename"],
@@ -501,19 +483,14 @@ class Client:
         cipher = self.writer.get_extra_info("cipher")
         if cipher:
             event["tls_cipher"] = "{}:{}:{}".format(*cipher)
-        self.log_event(event)
-        # await self.set_state({
-        #    "connected": True,
-        #    "address": self.writer.get_extra_info('peername')[0],
-        # })
-        await self.send_mqtt("id", self.clientid, retain=True, dedup=False)
-        await self.send_mqtt(
-            "address",
-            self.writer.get_extra_info("peername")[0],
-            retain=True,
-            dedup=False,
+        await self.log_event(event)
+        await self.set_states(
+            {
+                "id": self.clientid,
+                "address": self.writer.get_extra_info("peername")[0],
+                "firmware_progress": "",
+            }
         )
-        await self.send_mqtt("firmware_progress", "", retain=True, dedup=True)
         await self.send_message({"cmd": "ready"})
         await self.send_message({"cmd": "time", "time": int(time.time())})
         await self.send_message({"cmd": "system_query"})
@@ -523,13 +500,8 @@ class Client:
         self.connected = False
         if self.factory.client_from_id(self.clientid) is self:
             self.logger.info("disconnect: {} (final)".format(reason))
-            self.log_event({"event": "disconnect"})
-            # await self.set_state({
-            #    "connected": False,
-            #    "address": None,
-            # })
-            await self.send_mqtt("status", "offline", retain=True, dedup=False)
-            await self.send_mqtt("address", "", retain=True, dedup=False)
+            await self.log_event({"event": "disconnect"})
+            await self.set_states({"status": "offline", "address": ""})
         else:
             self.logger.info("disconnect: {} (replaced)".format(reason))
 
@@ -550,7 +522,7 @@ class Client:
     async def handle_cmd_event(self, message):
         message_copy = message.copy()
         del message_copy["cmd"]
-        self.log_event(message_copy)
+        await self.log_event(message_copy)
 
     async def handle_cmd_file_continue(self, message):
         chunk_size = 256
@@ -611,9 +583,7 @@ class Client:
         if position + len(chunk) >= self.firmware["size"]:
             reply["eof"] = True
         progress = int(100 * (position + len(chunk)) / self.firmware["size"])
-        await self.send_mqtt(
-            "firmware_progress", str(progress), retain=True, dedup=True
-        )
+        await self.set_states({"firmware_progress": str(progress)})
         await self.send_message(reply)
 
     async def handle_cmd_firmware_write_error(self, message):
@@ -624,29 +594,17 @@ class Client:
         self.firmware_pending_reboot = True
 
     async def handle_cmd_metrics_info(self, message):
-        # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ["cmd"]:
-                await self.set_metric(
-                    "metrics/{}".format(k), v, retain=True, dedup=False
-                )
-                await self.send_mqtt(
-                    "metrics/{}".format(k), v, retain=True, dedup=False
-                )
+                await self.set_metric("metrics/{}".format(k), v)
 
     async def handle_cmd_net_metrics_info(self, message):
         if "time" in message:
             offset = message["time"] - time.time()
             self.logger.info(f"time offset = {offset}")
-        # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ["cmd"]:
-                await self.set_metric(
-                    "metrics/{}".format(k), v, retain=True, dedup=False
-                )
-                await self.send_mqtt(
-                    "metrics/{}".format(k), v, retain=True, dedup=False
-                )
+                await self.set_metric("metrics/{}".format(k), v)
 
     async def handle_cmd_ping(self, message):
         """Reply to ping requests from the client."""
@@ -667,7 +625,7 @@ class Client:
 
         if "timestamp" in message:
             rtt = time.time() - float(message["timestamp"])
-            await self.send_mqtt("rtt", str(int(rtt * 1000)), retain=True, dedup=False)
+            await self.set_metric("rtt", str(int(rtt * 1000)))
 
     async def handle_cmd_system_info(self, message):
         """Receive system-level metadata from the client."""
@@ -676,10 +634,8 @@ class Client:
             # firmware versions will be saved for managing firmware sync later
             self.remote_firmware_active = message["esp_sketch_md5"]
 
-            # send legacy MQTT topic
-            await self.send_mqtt(
-                "sketch_md5", message["esp_sketch_md5"], retain=True, dedup=False
-            )
+            # send legacy topic
+            await self.set_metric("sketch_md5", message["esp_sketch_md5"])
 
         if message.get("restarted") is True:
             timestamp = time.time() - (message["millis"] / 1000)
@@ -691,25 +647,21 @@ class Client:
             }
             if "net_reset_info" in message:
                 event["net_reset_info"] = message["net_reset_info"]
-            self.log_event(event)
+            await self.log_event(event)
 
-        # all metadata will be sent to MQTT
         for k, v in message.items():
             if k not in ["cmd"]:
-                await self.set_metric(
-                    "system/{}".format(k), v, retain=True, dedup=False
-                )
-                await self.send_mqtt("system/{}".format(k), v, retain=True, dedup=False)
+                await self.set_metric("system/{}".format(k), v)
 
     async def handle_cmd_token_auth(self, message):
         """Look-up a token ID and return authentication data to the client."""
 
-        result = await self.tokendb.auth_token(
+        result = await self.hooks.auth_token(
             message["uid"],
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
-            counter=message.get("ntag_counter", None),
             location="{}:{}".format(self.__class__.__name__.lower(), self.slug),
+            extra={"counter": message.get("ntag_counter", None)},
         )
         if result:
             await self.send_message(
@@ -749,7 +701,6 @@ class ClientFactory:
     def __init__(self):
         self.clients_by_id = {}
         self.clients_by_slug = {}
-        self.mqtt_queue = None
 
     def client_from_id(self, clientid):
         try:
@@ -765,7 +716,7 @@ class ClientFactory:
 
     async def client_from_hello(self, msg, reader, writer, address):
         if msg["cmd"] == "hello":
-            client = self.client_from_auth(
+            client = await self.client_from_auth(
                 msg["clientid"], msg["password"], address=address
             )
             if client:

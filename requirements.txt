@@ -1,22 +1,14 @@
 -i https://pypi.org/simple
 aiohttp==3.8.5
 aiosignal==1.3.1 ; python_version >= '3.7'
-apprise==1.5.0
 async-timeout==4.0.3 ; python_version >= '3.7'
 attrs==23.1.0 ; python_version >= '3.7'
-certifi==2023.7.22 ; python_version >= '3.6'
 charset-normalizer==3.3.0 ; python_full_version >= '3.7.0'
-click==8.1.7 ; python_version >= '3.7'
 disnake==2.9.0
 frozenlist==1.4.0 ; python_version >= '3.8'
 idna==3.4 ; python_version >= '3.5'
-markdown==3.4.4 ; python_version >= '3.7'
 multidict==6.0.4 ; python_version >= '3.7'
-oauthlib==3.2.2 ; python_version >= '3.6'
 paho-mqtt==1.6.1
 pure-cdb==4.0.0
 pyyaml==6.0.1
-requests==2.31.0 ; python_version >= '3.7'
-requests-oauthlib==1.3.1 ; python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'
-urllib3==2.0.6 ; python_version >= '3.7'
 yarl==1.9.2 ; python_version >= '3.7'
