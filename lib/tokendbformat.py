@@ -36,3 +36,39 @@ def encode_tokendb_v2(data, hash_length=4, salt=b""):
             except UnicodeEncodeError:
                 output += bytes([0])
     return output
+
+
+def decode_tokendb_v2(data):
+    output = {}
+
+    pos = 0
+    version = data[pos]
+    hash_length = data[pos+1]
+    salt_length = data[pos+2]
+    salt = data[pos+3:pos+3+salt_length]
+    pos = pos + 3 + salt_length
+
+    output = {
+        "hash_length": hash_length,
+        "salt": binascii.hexlify(salt).decode(),
+        "tokens": {}
+    }
+
+    while pos < len(data):
+        hashed_uid = data[pos:pos+hash_length]
+        access = data[pos+hash_length]
+        username_length = data[pos+hash_length+1]
+        username = data[pos+hash_length+2:pos+hash_length+2+username_length]
+        pos = pos+hash_length+2+username_length
+        output["tokens"][binascii.hexlify(hashed_uid).decode()] = {
+            "access": access,
+            "username": username.decode()
+        }
+
+    return output
+
+
+if __name__ == "__main__":
+    import sys
+    data = sys.stdin.buffer.read()
+    print(decode_tokendb_v2(data))
