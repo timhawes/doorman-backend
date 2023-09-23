@@ -59,9 +59,10 @@ class RemoteTextFile:
                         else:
                             self.data = self.parse(await response.read())
                         logging.info(f"{self} loaded")
-                    logging.debug(
-                        f"{self} not loaded, HTTP {response.status} {response.reason}"
-                    )
+                    else:
+                        logging.debug(
+                            f"{self} not loaded, HTTP {response.status} {response.reason}"
+                        )
 
     async def __aenter__(self):
         await self.load()
