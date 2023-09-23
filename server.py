@@ -144,10 +144,15 @@ async def ss_handler(reader, writer):
     async def client_write_callback(msg):
         await ss_write_callback(writer, write_lock, msg)
 
-    client = await create_client(reader, writer)
-    if client:
-        client.write_callback = client_write_callback
-    else:
+    try:
+        client = await create_client(reader, writer)
+        if client:
+            client.write_callback = client_write_callback
+        else:
+            writer.close()
+            return
+    except Exception as e:
+        logging.exception(f"Exception creating client for {address}")
         writer.close()
         return
 
