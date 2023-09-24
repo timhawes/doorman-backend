@@ -252,6 +252,7 @@ class Client:
 
     async def reload_settings(self, create=False):
         self.slug = self.clientdb.get_value(self.clientid, "slug", self.clientid)
+
         self.token_groups = self.clientdb.get_value(self.clientid, "groups")
         self.token_exclude_groups = self.clientdb.get_value(
             self.clientid, "exclude_groups"
@@ -261,6 +262,11 @@ class Client:
             exclude_groups=self.token_exclude_groups,
             salt=self.clientdb.get_value(self.clientid, "token_salt").encode(),
         )
+        if create:
+            self.files["tokens.dat"] = SyncableStringFile("tokens.dat", token_data)
+        else:
+            self.files["tokens.dat"].update(token_data)
+
         for filename, filedata in self.clientdb.get_value(
             self.clientid, "files"
         ).items():
@@ -269,21 +275,24 @@ class Client:
                 self.files[filename] = SyncableStringFile(filename, content)
             else:
                 self.files[filename].update(content)
-        legacy_config_json = render_file(
-            "config.json",
-            legacy_config(self.clientdb.get_value(self.clientid, "files")),
-        )
-        if create:
-            self.files["config.json"] = SyncableStringFile(
-                "config.json", legacy_config_json
-            )
-            self.files["tokens.dat"] = SyncableStringFile("tokens.dat", token_data)
-        else:
-            self.files["config.json"].update(legacy_config_json)
-            self.files["tokens.dat"].update(token_data)
+        
         firmware_filename = self.clientdb.get_value(self.clientid, "firmware")
         if firmware_filename:
             self.firmware = await self.get_firmware(firmware_filename)
+
+        try:
+            legacy_config_json = render_file(
+                "config.json",
+                legacy_config(self.clientdb.get_value(self.clientid, "files")),
+            )
+            if create:
+                self.files["config.json"] = SyncableStringFile(
+                    "config.json", legacy_config_json
+                )
+            else:
+                self.files["config.json"].update(legacy_config_json)
+        except Exception as e:
+            logging.exception("Skipping legacy config.json", e)
 
     def status_json(self):
         return {
