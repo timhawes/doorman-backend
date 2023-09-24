@@ -68,7 +68,7 @@ class Door(Client):
             elif topic in state_names:
                 new_states[topic] = message[topic]
             elif topic in metric_names:
-                self.factory.hooks.log_metric(self.slug, topic, message[topic])
+                await self.factory.hooks.log_metric(self.slug, topic, message[topic])
 
         if "unlock" in message and "door" in message:
             if message["door"] == "closed" and message["unlock"] is False:
