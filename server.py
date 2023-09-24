@@ -330,6 +330,11 @@ class EventLoggingThread(threading.Thread):
                     webhook.send(message)
 
 
+if settings.debug:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
 if settings.mqtt_host:
     mqtt_queue = queue.Queue()
     mqtt_thread = MqttThread()
@@ -355,8 +360,4 @@ clientfactory.mqtt_queue = mqtt_queue
 clientfactory.mqtt_prefix = settings.mqtt_prefix
 clientfactory.event_queue = event_queue
 
-if settings.debug:
-    logging.basicConfig(level=logging.DEBUG)
-else:
-    logging.basicConfig(level=logging.INFO)
 asyncio.run(main())
