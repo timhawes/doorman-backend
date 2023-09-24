@@ -1,6 +1,4 @@
-import collections.abc
-
-from fileloader import LocalYamlFile
+from fileloader import local_file
 
 from .base import BaseHook
 
@@ -10,7 +8,7 @@ from mergedicts import mergedicts
 
 class LocalDeviceConfig(BaseHook):
     def __init__(self, filename):
-        self.config_yaml = LocalYamlFile(filename)
+        self.config_yaml = local_file(filename)
 
     async def get_device(self, clientid):
         if len(clientid) == 0:

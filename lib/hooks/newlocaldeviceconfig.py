@@ -1,19 +1,9 @@
-from fileloader import LocalYamlFile, LocalJsonFile, LocalTomlFile
+from fileloader import local_file
 import mergedicts
 
 from hooks.base import BaseHook
 
 PARENT_KEY = "profiles"
-
-
-def local_file(filename):
-    if filename.endswith(".json"):
-        return LocalJsonFile(filename)
-    if filename.endswith(".yaml"):
-        return LocalYamlFile(filename)
-    if filename.endswith(".toml"):
-        return LocalTomlFile(filename)
-    raise ValueError(f"Unknown file type {filename}")
 
 
 class LocalDeviceConfig(BaseHook):

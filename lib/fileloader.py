@@ -158,3 +158,13 @@ class LocalTomlFile(LocalTextFile):
 
     def parse(self, data):
         return tomllib.loads(data)
+
+
+def local_file(filename):
+    if filename.endswith(".json"):
+        return LocalJsonFile(filename)
+    if filename.endswith(".yaml"):
+        return LocalYamlFile(filename)
+    if filename.endswith(".toml"):
+        return LocalTomlFile(filename)
+    raise ValueError(f"Unknown file type {filename}")
