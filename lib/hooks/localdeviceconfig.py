@@ -5,19 +5,7 @@ from fileloader import LocalYamlFile
 from .base import BaseHook
 
 
-def merge_dicts(dicts):
-    """Recursively merges a series of dicts. Earlier dicts get priority."""
-    output = {}
-    for d in dicts:
-        for k, v in d.items():
-            if k not in output:
-                output[k] = v
-            else:
-                if isinstance(v, collections.abc.Mapping) and isinstance(
-                    output[k], collections.abc.Mapping
-                ):
-                    output[k] = merge_dicts([output[k], v])
-    return output
+from mergedicts import mergedicts
 
 
 class LocalDeviceConfig(BaseHook):
@@ -30,7 +18,7 @@ class LocalDeviceConfig(BaseHook):
         if clientid == "DEFAULTS":
             return None
         async with self.config_yaml as data:
-            return merge_dicts([data[clientid], data["DEFAULTS"]])
+            return mergedicts([data[clientid], data["DEFAULTS"]])
 
     async def auth_device(self, clientid, password):
         if len(clientid) == 0:
