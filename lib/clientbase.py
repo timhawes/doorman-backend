@@ -293,6 +293,7 @@ class Client:
             "slug": self.slug,
             "metrics": self.metrics,
             "states": self.states,
+            "files": self.remote_files,
         }
 
     async def set_state(self, states):
@@ -551,6 +552,16 @@ class Client:
             self.logger.debug("file_info: {} is not known".format(filename))
             return
         self.files[filename].remote(message["md5"], message["size"])
+        if message["md5"] is None and message["size"] is None:
+            try:
+                del self.remote_files[filename]
+            except KeyError:
+                pass
+        else:
+            self.remote_files[filename] = {
+                "md5": message["md5"],
+                "size": message["size"],
+            }
 
     async def handle_cmd_file_write_error(self, message):
         filename = message["filename"]
