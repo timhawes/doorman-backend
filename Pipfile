@@ -9,6 +9,7 @@ paho-mqtt = "*"
 pyyaml = "*"
 pure-cdb = "*"
 disnake = "*"
+requests = "*"
 
 [dev-packages]
 
