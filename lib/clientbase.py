@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import datetime
 import hashlib
 import io
 import json
@@ -184,6 +185,8 @@ class Client:
         self.tokendb = factory.tokendb
         self.address = address
         self.connected = True
+        self.connect_start = time.time()
+        self.connect_finish = None
 
         # initial value for slug
         self.slug = self.clientdb.get_value(self.clientid, "slug", self.clientid)
@@ -275,7 +278,7 @@ class Client:
                 self.files[filename] = SyncableStringFile(filename, content)
             else:
                 self.files[filename].update(content)
-        
+
         firmware_filename = self.clientdb.get_value(self.clientid, "firmware")
         if firmware_filename:
             self.firmware = await self.get_firmware(firmware_filename)
@@ -295,7 +298,7 @@ class Client:
             logging.exception("Skipping legacy config.json", e)
 
     def status_json(self):
-        return {
+        status = {
             "clientid": self.clientid,
             "address": self.address,
             "connected": self.connected,
@@ -304,6 +307,17 @@ class Client:
             "states": self.states,
             "files": self.remote_files,
         }
+        if self.connect_start:
+            status["connect_start"] = datetime.datetime.fromtimestamp(
+                self.connect_start, datetime.timezone.utc
+            ).isoformat()
+        if self.connect_finish:
+            status["connect_finish"] = datetime.datetime.fromtimestamp(
+                self.connect_finish, datetime.timezone.utc
+            ).isoformat()
+        if self.connected:
+            status["connect_uptime"] = int(time.time() - self.connect_start)
+        return status
 
     async def set_state(self, states):
         changes = []
@@ -505,6 +519,7 @@ class Client:
         await self.send_message({"cmd": "system_query"})
 
     async def handle_disconnect(self, reason=None):
+        self.connect_finish = time.time()
         self.connected = False
         if self.factory.client_from_id(self.clientid) is self:
             self.logger.info("disconnect: {} (final)".format(reason))
