@@ -300,7 +300,7 @@ class Client:
     def status_json(self):
         status = {
             "clientid": self.clientid,
-            "address": self.address,
+            "address": f"{self.address[0]}:{self.address[1]}",
             "connected": self.connected,
             "slug": self.slug,
             "metrics": self.metrics,
