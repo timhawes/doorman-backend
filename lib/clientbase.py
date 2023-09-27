@@ -313,21 +313,6 @@ class Client:
             status["connect_uptime"] = int(time.time() - self.connect_start)
         return status
 
-    async def set_states(self, states):
-        changes = []
-        for k, v in states.items():
-            await self.factory.hooks.log_state(self.slug, k, v)
-            try:
-                old_value = self.states[k]
-                if v != old_value:
-                    changes.append(f"{k}={v}")
-            except KeyError:
-                changes.append(f"{k}={v}")
-            self.states[k] = v
-        if changes:
-            changes.sort()
-            self.logger.info(f"state {' '.join(changes)}")
-
     def loggable_message(self, message):
         output = message.copy()
         if output.get("cmd") in ["file_data", "firmware_data"]:
@@ -378,12 +363,17 @@ class Client:
         self.logger.info("send {}".format(self.loggable_message(message)))
         await self.send_message(message)
 
-    async def set_metric(self, name, value):
-        self.metrics[name] = value
-        if value is None:
-            await self.factory.hooks.log_metric(self.slug, name, "")
-        else:
-            await self.factory.hooks.log_metric(self.slug, name, value)
+    async def set_metrics(self, metrics, timestamp=None):
+        self.metrics.update(metrics)
+        await self.factory.hooks.log_metrics(
+            self.clientid, self.slug, metrics, timestamp=timestamp
+        )
+
+    async def set_states(self, states, timestamp=None):
+        self.states.update(states)
+        await self.factory.hooks.log_states(
+            self.clientid, self.slug, states, timestamp=timestamp
+        )
 
     async def sync_task(self):
         self.logger.debug("sync_task: starting")
@@ -488,7 +478,7 @@ class Client:
             {
                 "id": self.clientid,
                 "address": self.writer.get_extra_info("peername")[0],
-                "firmware_progress": "",
+                "firmware_progress": None,
             }
         )
         await self.send_message({"cmd": "ready"})
@@ -501,7 +491,7 @@ class Client:
         if self.factory.client_from_id(self.clientid) is self:
             self.logger.info("disconnect: {} (final)".format(reason))
             await self.log_event({"event": "disconnect"})
-            await self.set_states({"status": "offline", "address": ""})
+            await self.set_states({"status": "offline", "address": None})
         else:
             self.logger.info("disconnect: {} (replaced)".format(reason))
 
@@ -583,7 +573,7 @@ class Client:
         if position + len(chunk) >= self.firmware["size"]:
             reply["eof"] = True
         progress = int(100 * (position + len(chunk)) / self.firmware["size"])
-        await self.set_states({"firmware_progress": str(progress)})
+        await self.set_states({"firmware_progress": progress})
         await self.send_message(reply)
 
     async def handle_cmd_firmware_write_error(self, message):
@@ -594,17 +584,14 @@ class Client:
         self.firmware_pending_reboot = True
 
     async def handle_cmd_metrics_info(self, message):
-        for k, v in message.items():
-            if k not in ["cmd"]:
-                await self.set_metric("metrics/{}".format(k), v)
+        metrics = message.copy()
+        del metrics["cmd"]
+        await self.set_metrics(metrics, timestamp=metrics.pop("time", None))
 
     async def handle_cmd_net_metrics_info(self, message):
-        if "time" in message:
-            offset = message["time"] - time.time()
-            self.logger.info(f"time offset = {offset}")
-        for k, v in message.items():
-            if k not in ["cmd"]:
-                await self.set_metric("metrics/{}".format(k), v)
+        metrics = message.copy()
+        del metrics["cmd"]
+        await self.set_metrics(metrics, timestamp=metrics.pop("time", None))
 
     async def handle_cmd_ping(self, message):
         """Reply to ping requests from the client."""
@@ -620,22 +607,17 @@ class Client:
 
     async def handle_cmd_pong(self, message):
         """Receive response to ping."""
-
         self.last_pong_received = time.time()
 
         if "timestamp" in message:
             rtt = time.time() - float(message["timestamp"])
-            await self.set_metric("rtt", str(int(rtt * 1000)))
+            await self.set_metrics({"rtt": int(rtt * 1000)})
 
     async def handle_cmd_system_info(self, message):
         """Receive system-level metadata from the client."""
-
         if "esp_sketch_md5" in message:
             # firmware versions will be saved for managing firmware sync later
             self.remote_firmware_active = message["esp_sketch_md5"]
-
-            # send legacy topic
-            await self.set_metric("sketch_md5", message["esp_sketch_md5"])
 
         if message.get("restarted") is True:
             timestamp = time.time() - (message["millis"] / 1000)
@@ -649,9 +631,9 @@ class Client:
                 event["net_reset_info"] = message["net_reset_info"]
             await self.log_event(event)
 
-        for k, v in message.items():
-            if k not in ["cmd"]:
-                await self.set_metric("system/{}".format(k), v)
+        metrics = message.copy()
+        del metrics["cmd"]
+        await self.set_metrics(metrics, timestamp=metrics.pop("time", None))
 
     async def handle_cmd_token_auth(self, message):
         """Look-up a token ID and return authentication data to the client."""

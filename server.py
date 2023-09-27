@@ -15,6 +15,7 @@ from hooks.hacklabtokens import HacklabTokens
 from hooks.mqttmetrics import MqttMetrics
 from hooks.discordevents import DiscordEvents
 from hooks.localtokens import LocalTokens
+from hooks.logdebug import LogDebug
 import doorman
 import tokendb
 
@@ -263,6 +264,7 @@ else:
 
 hooks = HookDispatcher()
 hooks.add_hook(LocalDeviceConfig(settings.config_yaml))
+hooks.add_hook(LogDebug())
 if settings.local_tokens_file:
     hooks.add_hook(LocalTokens(settings.local_tokens_file))
 if settings.api_download_url and settings.api_auth_url and settings.api_token:

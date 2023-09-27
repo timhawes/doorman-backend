@@ -57,40 +57,42 @@ class Door(Client):
         state_names = ["door", "power"]
         metric_names = ["voltage"]
 
-        new_states = {}
+        states = {}
+        metrics = {}
 
         for topic in message.keys():
             if topic in lower_state_names:
                 if isinstance(message[topic], str):
-                    new_states[topic] = message[topic].lower()
+                    states[topic] = message[topic].lower()
                 else:
-                    new_states[topic] = message[topic]
+                    states[topic] = message[topic]
             elif topic in state_names:
-                new_states[topic] = message[topic]
+                states[topic] = message[topic]
             elif topic in metric_names:
-                await self.factory.hooks.log_metric(self.slug, topic, message[topic])
+                metrics[topic] = message[topic]
 
         if "unlock" in message and "door" in message:
             if message["door"] == "closed" and message["unlock"] is False:
-                new_states["secure_state"] = "secure"
+                states["secure_state"] = "secure"
             elif message["door"] == "closed":
-                new_states["secure_state"] = "closed"
+                states["secure_state"] = "closed"
             else:
-                new_states["secure_state"] = "open"
+                states["secure_state"] = "open"
 
         if "user" in message:
             if message["user"] == "":
-                new_states["user"] = None
+                states["user"] = None
             elif not is_uid(message["user"]):
                 anon = await self.factory.tokendb.is_anonymous(message["user"])
                 if anon:
-                    new_states["user"] = "anonymous"
+                    states["user"] = "anonymous"
                 else:
-                    new_states["user"] = message["user"]
+                    states["user"] = message["user"]
             else:
-                new_states["user"] = "unknown"
+                states["user"] = "unknown"
 
-        await self.set_states(new_states)
+        await self.set_states(states, timestamp=message.pop("time", None))
+        await self.set_metrics(metrics, timestamp=message.pop("time", None))
 
 
 class DoorFactory(ClientFactory):

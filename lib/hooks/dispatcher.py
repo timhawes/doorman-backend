@@ -43,11 +43,15 @@ class HookDispatcher:
             extra=extra,
         )
 
-    async def log_metric(self, deviceid, key, value):
-        return await self.call_method("log_metric", deviceid, key, value)
+    async def log_metrics(self, deviceid, devicename, metrics, *, timestamp=None):
+        return await self.call_method(
+            "log_metrics", deviceid, devicename, metrics, timestamp=timestamp
+        )
 
-    async def log_state(self, deviceid, key, value):
-        return await self.call_method("log_state", deviceid, key, value)
+    async def log_states(self, deviceid, devicename, states, *, timestamp=None):
+        return await self.call_method(
+            "log_states", deviceid, devicename, states, timestamp=timestamp
+        )
 
     async def log_event(self, message):
         return await self.call_method("log_event", message)

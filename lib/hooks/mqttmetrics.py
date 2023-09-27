@@ -7,6 +7,9 @@ import paho.mqtt.client as mqtt
 
 from .base import BaseHook
 
+IGNORE_METRICS = []
+IGNORE_STATES = []
+
 
 class MqttThread(threading.Thread):
     def on_connect(self, *args, **kwargs):
@@ -25,9 +28,11 @@ class MqttThread(threading.Thread):
                 m.loop_start()
                 while True:
                     topic, payload, retain = self.mqtt_queue.get()
+                    if payload is None:
+                        payload = ""
                     m.publish(
                         topic,
-                        payload,
+                        str(payload),
                         retain=retain,
                     )
             except Exception as e:
@@ -36,7 +41,7 @@ class MqttThread(threading.Thread):
 
 
 class MqttMetrics(BaseHook):
-    def __init__(self, host, port=1883, prefix=""):
+    def __init__(self, host, port=1883, prefix="doorman/"):
         self.mqtt_prefix = prefix
         self.mqtt_queue = queue.Queue()
         self.state_cache = {}
@@ -48,13 +53,26 @@ class MqttMetrics(BaseHook):
         self.mqtt_thread.daemon = True
         self.mqtt_thread.start()
 
-    async def log_metric(self, deviceid, key, value):
-        topic = f"{self.mqtt_prefix}{deviceid}/{key}"
-        self.mqtt_queue.put((topic, value, True))
+    def metric_topic(self, deviceid, devicename, key):
+        return f"{self.mqtt_prefix}{devicename}/metrics/{key}"
 
-    async def log_state(self, deviceid, key, value):
-        topic = f"{self.mqtt_prefix}{deviceid}/{key}"
-        old_value = self.state_cache.get(topic)
-        if old_value != value:
-            self.state_cache[topic] = value
+    def state_topic(self, deviceid, devicename, key):
+        return f"{self.mqtt_prefix}{devicename}/{key}"
+
+    async def log_metrics(self, deviceid, devicename, metrics, *, timestamp=None):
+        for key, value in metrics.items():
+            if key in IGNORE_METRICS:
+                continue
+            topic = self.metric_topic(deviceid, devicename, key)
             self.mqtt_queue.put((topic, value, True))
+
+    async def log_states(self, deviceid, devicename, states, *, timestamp=None):
+        for key, value in states.items():
+            if key in IGNORE_STATES:
+                continue
+            cache_key = f"{deviceid}:{key}"
+            old_value = self.state_cache.get(cache_key)
+            if old_value != value:
+                topic = self.state_topic(deviceid, devicename, key)
+                self.state_cache[cache_key] = value
+                self.mqtt_queue.put((topic, value, True))
