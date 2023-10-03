@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import time
+from dataclasses import dataclass
 
 
 def is_uid(uid):
@@ -177,6 +178,17 @@ class SyncableDiskFile(BaseSyncableFile):
         return self.md5
 
 
+@dataclass
+class MessageCallback:
+    filter: dict
+    response: dict | None = None
+    event = None
+
+    def __post_init__(self):
+        if self.event is None:
+            self.event = asyncio.Event()
+
+
 class Client:
     def __init__(self, clientid, factory, config, hooks, address):
         self.clientid = clientid
@@ -234,6 +246,9 @@ class Client:
         # metrics
         self.metrics = {}
         self.states = {}
+
+        # message callbacks
+        self.callbacks = []
 
     def __str__(self):
         if self.writer:
@@ -358,6 +373,18 @@ class Client:
     async def send_message(self, message):
         self.logger.info("send {}".format(self.loggable_message(message)))
         await self.write_callback(message)
+
+    async def send_and_get_response(self, message, filter, timeout=5):
+        cb = MessageCallback(filter=filter)
+        self.callbacks.append(cb)
+        await self.send_message(message)
+        try:
+            await asyncio.wait_for(cb.event.wait(), timeout=timeout)
+            return cb.response
+        except asyncio.TimeoutError:
+            self.logger.warn(f"callback timeout waiting for {filter}")
+        finally:
+            self.callbacks.remove(cb)
 
     async def set_metrics(self, metrics, timestamp=None):
         self.metrics.update(metrics)
@@ -496,10 +523,25 @@ class Client:
 
         self.logger.info("recv {}".format(self.loggable_message(message)))
 
+        handled_by_callback = False
+
+        for cb in self.callbacks:
+            if cb.response is None:
+                matched = True
+                for k, v in cb.filter.items():
+                    if message.get(k) != v:
+                        matched = False
+                        break
+                if matched:
+                    cb.response = message
+                    cb.event.set()
+                    handled_by_callback = True
+
         try:
             method = getattr(self, f"handle_cmd_{message['cmd']}")
         except AttributeError:
-            self.logger.info(f"Ignoring unknown cmd {message['cmd']}")
+            if not handled_by_callback:
+                self.logger.info(f"Ignoring unknown cmd {message['cmd']}")
             return
 
         if callable(method):
