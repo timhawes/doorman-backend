@@ -180,7 +180,7 @@ class SyncableDiskFile(BaseSyncableFile):
 
 @dataclass
 class MessageCallback:
-    filter: dict
+    filters: list
     response: dict | None = None
     event = None
 
@@ -374,8 +374,8 @@ class Client:
         self.logger.info("send {}".format(self.loggable_message(message)))
         await self.write_callback(message)
 
-    async def send_and_get_response(self, message, filter, timeout=5):
-        cb = MessageCallback(filter=filter)
+    async def send_and_get_response(self, message, filters, timeout=5):
+        cb = MessageCallback(filters=filters)
         self.callbacks.append(cb)
         await self.send_message(message)
         try:
@@ -527,15 +527,17 @@ class Client:
 
         for cb in self.callbacks:
             if cb.response is None:
-                matched = True
-                for k, v in cb.filter.items():
-                    if message.get(k) != v:
-                        matched = False
+                for f in cb.filters:
+                    matched = True
+                    for k, v in f.items():
+                        if message.get(k) != v:
+                            matched = False
+                            break
+                    if matched:
+                        cb.response = message
+                        cb.event.set()
+                        handled_by_callback = True
                         break
-                if matched:
-                    cb.response = message
-                    cb.event.set()
-                    handled_by_callback = True
 
         try:
             method = getattr(self, f"handle_cmd_{message['cmd']}")
