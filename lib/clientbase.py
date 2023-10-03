@@ -359,10 +359,6 @@ class Client:
         self.logger.info("send {}".format(self.loggable_message(message)))
         await self.write_callback(message)
 
-    async def queue_message(self, message):
-        self.logger.info("send {}".format(self.loggable_message(message)))
-        await self.send_message(message)
-
     async def set_metrics(self, metrics, timestamp=None):
         self.metrics.update(metrics)
         await self.factory.hooks.log_metrics(
