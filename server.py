@@ -7,7 +7,7 @@ import os
 import ssl
 import sys
 
-sys.path.insert(0, "lib")
+sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), "lib"))
 
 from hooks.dispatcher import HookDispatcher
 from hooks.localdeviceconfig import LocalDeviceConfig
