@@ -238,11 +238,6 @@ class Client:
         self.files = {}
         self.firmware = None
 
-        # current state of the sync
-        self.firmware_complete = asyncio.Event()
-        self.firmware_complete.clear()
-        self.firmware_pending_reboot = False
-
         # metrics
         self.metrics = {}
         self.states = {}
@@ -398,92 +393,172 @@ class Client:
             self.clientid, self.slug, states, timestamp=timestamp
         )
 
+    async def _sync_file(self, filename, size, md5, data, chunk_size=256):
+        remote = await self.send_and_get_response(
+            {"cmd": "file_query", "filename": filename},
+            [{"cmd": "file_info", "filename": filename}],
+        )
+        if not remote:
+            self.logger.warn(f"sync: {filename} no response to file_query")
+            return
+
+        if remote.get("md5") == md5 and remote.get("size") == size:
+            self.logger.info(f"sync: {filename} is up to date")
+            return
+
+        self.logger.info(f"sync: {filename} started")
+        await self.log_event(
+            {
+                "event": "file_sync_start",
+                "filename": filename,
+                "size": self.files[filename].get_size(),
+                "md5": self.files[filename].get_md5(),
+            }
+        )
+
+        filters = [
+            {"cmd": "file_continue", "filename": filename},
+            {"cmd": "file_write_error", "filename": filename},
+            {"cmd": "file_write_ok", "filename": filename},
+        ]
+
+        response = await self.send_and_get_response(
+            {
+                "cmd": "file_write",
+                "filename": filename,
+                "md5": md5,
+                "size": size,
+            },
+            filters,
+        )
+
+        while response:
+            if response["cmd"] == "file_write_error":
+                error = response.get("error")
+                self.logger.error(f"sync: {filename} error {error}")
+                return
+            if response["cmd"] == "file_write_ok":
+                self.logger.info(f"sync: {filename} complete")
+                await self.log_event(
+                    {
+                        "event": "file_sync_complete",
+                        "filename": filename,
+                        "size": size,
+                        "md5": md5,
+                    }
+                )
+                return
+            if response["cmd"] == "file_continue":
+                position = response["position"]
+                data.seek(position)
+                chunk = data.read(chunk_size)
+                file_data = {
+                    "cmd": "file_data",
+                    "filename": filename,
+                    "position": position,
+                    "data": base64.b64encode(chunk).decode(),
+                }
+                if position + len(chunk) >= size:
+                    file_data["eof"] = True
+                response = await self.send_and_get_response(file_data, filters)
+
+        self.logger.error(f"sync: {filename} no response")
+
+    async def _sync_firmware(self, size, md5, data, chunk_size=256):
+        if self.remote_firmware_active is None and self.remote_firmware_pending is None:
+            self.logger.info("sync: firmware remote state is unknown")
+            return
+
+        if self.remote_firmware_active == md5:
+            self.logger.info("sync: firmware is up to date (active)")
+            return
+
+        if self.remote_firmware_pending == md5:
+            self.logger.info("sync: firmware is up to date (pending reboot)")
+            return
+
+        self.logger.info(f"sync: firmware started")
+        await self.log_event(
+            {
+                "event": "firmware_sync_start",
+                "size": size,
+                "md5": md5,
+            }
+        )
+        filters = [
+            {"cmd": "firmware_continue"},
+            {"cmd": "firmware_write_error"},
+            {"cmd": "firmware_write_ok"},
+        ]
+
+        response = await self.send_and_get_response(
+            {
+                "cmd": "firmware_write",
+                "md5": md5,
+                "size": size,
+            },
+            filters,
+        )
+
+        while response:
+            if response["cmd"] == "firmware_write_error":
+                error = response.get("error")
+                self.logger.error(f"sync: firmware error {error}")
+                return
+            if response["cmd"] == "firmware_write_ok":
+                self.remote_firmware_pending = md5
+                self.logger.info(f"sync: firmware complete")
+                await self.log_event(
+                    {
+                        "event": "firmware_sync_complete",
+                        "size": size,
+                        "md5": md5,
+                    }
+                )
+                return
+            if response["cmd"] == "firmware_continue":
+                position = response["position"]
+                data.seek(position)
+                chunk = data.read(chunk_size)
+                file_data = {
+                    "cmd": "firmware_data",
+                    "position": position,
+                    "data": base64.b64encode(chunk).decode(),
+                }
+                if position + len(chunk) >= size:
+                    file_data["eof"] = True
+                progress = int(100 * (position + len(chunk)) / size)
+                await self.set_states({"firmware_progress": progress})
+                response = await self.send_and_get_response(file_data, filters)
+
+        self.logger.error(f"sync: firmware no response")
+
+    async def _sync_loop(self):
+        self.logger.debug("sync_task: loop begins")
+
+        await self.reload_settings()
+
+        for filename in self.files.keys():
+            await self._sync_file(
+                filename,
+                self.files[filename].get_size(),
+                self.files[filename].get_md5(),
+                self.files[filename].get_handle(),
+            )
+
+        if self.firmware:
+            await self._sync_firmware(
+                self.firmware["size"],
+                self.firmware["md5"],
+                self.firmware["handle"],
+            )
+
+        self.logger.debug("sync_task: loop ends")
+
     async def sync_task(self):
         self.logger.debug("sync_task: starting")
         while True:
-            self.logger.debug("sync_task: loop begins")
-
-            await self.reload_settings()
-
-            for filename in self.files.keys():
-                if self.files[filename].needMetadata():
-                    await self.send_message(
-                        {
-                            "cmd": "file_query",
-                            "filename": filename,
-                        }
-                    )
-                    self.logger.debug("waiting for metadata to arrive")
-                    await self.files[filename].waitForMetadata()
-                    self.logger.debug("metadata is ready")
-
-                if self.files[filename].needSync():
-                    await self.log_event(
-                        {
-                            "event": "file_sync_start",
-                            "filename": filename,
-                            "size": self.files[filename].get_size(),
-                            "md5": self.files[filename].get_md5(),
-                        }
-                    )
-                    self.logger.info("{} sync started".format(filename))
-                    await self.send_message(
-                        {
-                            "cmd": "file_write",
-                            "filename": filename,
-                            "md5": self.files[filename].get_md5(),
-                            "size": self.files[filename].get_size(),
-                        }
-                    )
-                    self.logger.debug("waiting for sync to complete")
-                    await self.files[filename].waitForSync()
-                    await self.log_event(
-                        {
-                            "event": "file_sync_complete",
-                            "filename": filename,
-                            "size": self.files[filename].get_size(),
-                            "md5": self.files[filename].get_md5(),
-                        }
-                    )
-                    self.logger.info("sync complete")
-                else:
-                    self.logger.info("{} up to date".format(filename))
-
-            if self.firmware and self.firmware_pending_reboot == False:
-                if self.firmware["md5"] == self.remote_firmware_active:
-                    self.logger.info("firmware is up to date (active)")
-                elif self.firmware["md5"] == self.remote_firmware_pending:
-                    self.logger.info("firmware is up to date (pending reboot)")
-                else:
-                    self.logger.info("firmware sync started")
-                    await self.log_event(
-                        {
-                            "event": "firmware_sync_start",
-                            "filename": self.firmware["filename"],
-                            "size": self.firmware["size"],
-                            "md5": self.firmware["md5"],
-                        }
-                    )
-                    await self.send_message(
-                        {
-                            "cmd": "firmware_write",
-                            "md5": self.firmware["md5"],
-                            "size": self.firmware["size"],
-                        }
-                    )
-                    self.logger.debug("waiting for firmware sync to complete")
-                    await self.firmware_complete.wait()
-                    self.logger.info("firmware sync complete")
-                    await self.log_event(
-                        {
-                            "event": "firmware_sync_complete",
-                            "filename": self.firmware["filename"],
-                            "size": self.firmware["size"],
-                            "md5": self.firmware["md5"],
-                        }
-                    )
-
-            self.logger.debug("sync_task: loop ends")
+            await self._sync_loop()
             await asyncio.sleep(180)
 
     async def handle_connect(self):
@@ -554,30 +629,8 @@ class Client:
         del message_copy["cmd"]
         await self.log_event(message_copy)
 
-    async def handle_cmd_file_continue(self, message):
-        chunk_size = 256
-        filename = message["filename"]
-        position = message["position"]
-        handle = self.files[filename].get_handle()
-        handle.seek(position)
-        chunk = handle.read(chunk_size)
-        reply = {
-            "cmd": "file_data",
-            "filename": filename,
-            "position": position,
-            "data": base64.b64encode(chunk).decode(),
-        }
-        if position + len(chunk) >= self.files[filename].get_size():
-            reply["eof"] = True
-        await self.send_message(reply)
-
     async def handle_cmd_file_info(self, message):
         filename = message["filename"]
-        if filename not in self.files:
-            # we don't know about this file
-            self.logger.debug("file_info: {} is not known".format(filename))
-            return
-        self.files[filename].remote(message["md5"], message["size"])
         if message["md5"] is None and message["size"] is None:
             try:
                 del self.remote_files[filename]
@@ -588,40 +641,6 @@ class Client:
                 "md5": message["md5"],
                 "size": message["size"],
             }
-
-    async def handle_cmd_file_write_error(self, message):
-        filename = message["filename"]
-        self.files[filename].syncDone()
-
-    async def handle_cmd_file_write_ok(self, message):
-        filename = message["filename"]
-        self.files[filename].syncDone()
-
-    async def handle_cmd_firmware_continue(self, message):
-        if not self.firmware:
-            return
-        chunk_size = 256
-        position = message["position"]
-        handle = self.firmware["handle"]
-        handle.seek(position)
-        chunk = handle.read(chunk_size)
-        reply = {
-            "cmd": "firmware_data",
-            "position": position,
-            "data": base64.b64encode(chunk).decode(),
-        }
-        if position + len(chunk) >= self.firmware["size"]:
-            reply["eof"] = True
-        progress = int(100 * (position + len(chunk)) / self.firmware["size"])
-        await self.set_states({"firmware_progress": progress})
-        await self.send_message(reply)
-
-    async def handle_cmd_firmware_write_error(self, message):
-        self.firmware_complete.set()
-
-    async def handle_cmd_firmware_write_ok(self, message):
-        self.firmware_complete.set()
-        self.firmware_pending_reboot = True
 
     async def handle_cmd_metrics_info(self, message):
         metrics = message.copy()
