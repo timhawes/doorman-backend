@@ -1,12 +1,9 @@
-FROM python:3.11
+FROM python:3.11-alpine
 
 WORKDIR /usr/src/app
 
-COPY Pipfile Pipfile.lock ./
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends pipenv \
-    && rm -r /var/lib/apt/lists/* \
-    && pipenv install --deploy --system
+COPY requirements.txt .
+RUN ENABLE_DJB_HASH_CEXT=0 pip install --require-hashes -r requirements.txt
 
 COPY . .
 
