@@ -1,15 +1,15 @@
-from fileloader import local_file
+import fileloader
 
 from .base import BaseHook
 
 
 class LocalTokens(BaseHook):
     def __init__(self, filename):
-        self.tokens_file = local_file(filename)
+        self.tokens_file = fileloader.get_loader().local_file(filename, text=True)
 
     async def get_tokens(self):
-        async with self.tokens_file as data:
-            return data
+        async with self.tokens_file as file:
+            return file.parse()
 
     async def auth_token(
         self, uid, *, groups=None, exclude_groups=None, location=None, extra={}

@@ -1,4 +1,4 @@
-from fileloader import local_file
+import fileloader
 
 from .base import BaseHook
 
@@ -8,14 +8,15 @@ from mergedicts import mergedicts
 
 class LocalDeviceConfig(BaseHook):
     def __init__(self, filename):
-        self.config_yaml = local_file(filename)
+        self.config_yaml = fileloader.get_loader().local_file(filename, text=True)
 
     async def get_device(self, clientid):
         if len(clientid) == 0:
             return None
         if clientid == "DEFAULTS":
             return None
-        async with self.config_yaml as data:
+        async with self.config_yaml as file:
+            data = file.parse()
             return mergedicts([data[clientid], data["DEFAULTS"]])
 
     async def auth_device(self, clientid, password):
