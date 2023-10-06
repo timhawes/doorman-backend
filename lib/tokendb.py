@@ -5,8 +5,6 @@ import logging
 
 from tokendbformat import encode_tokendb_v1, encode_tokendb_v2, encode_tokendb_v3
 
-# from cdbformat import encode_cdb
-
 
 class TokenAuthDatabase:
     def __init__(self, hooks):
@@ -85,18 +83,6 @@ class TokenAuthDatabase:
                     for uid in self.data[username]["tokens"]:
                         uids[uid] = username
         return encode_tokendb_v3(uids)
-
-    # def cdb_database(self, groups=None, exclude_groups=[]):
-    #     groups = groups or []
-    #     uids = {}
-    #     for username in self.data.keys():
-    #         for group in self.data[username]['groups']:
-    #             if group in exclude_groups:
-    #                 logging.info('excluding user {} due to group {}'.format(username, group))
-    #             elif group in groups:
-    #                 for uid in self.data[username]['tokens']:
-    #                     uids[uid] = username
-    #     return encode_cdb(uids)
 
     async def is_anonymous(self, username):
         if username is None or username == "":
