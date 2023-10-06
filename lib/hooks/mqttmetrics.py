@@ -41,7 +41,7 @@ class MqttThread(threading.Thread):
 
 
 class MqttMetrics(BaseHook):
-    def __init__(self, host, port=1883, prefix="doorman/"):
+    def __init__(self, host, port=1883, prefix="test/"):
         self.mqtt_prefix = prefix
         self.mqtt_queue = queue.Queue()
         self.state_cache = {}
