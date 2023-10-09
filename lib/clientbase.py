@@ -203,6 +203,9 @@ class Client:
         # initial value for slug
         self.slug = self.config.get("slug", self.clientid)
 
+        # chunk size for syncs
+        self.chunk_size = self.config.get("sync_chunk_size", 256)
+
         # configure logging
         self.logger = logging.getLogger(f"client.{self.clientid}/{self.slug}")
 
@@ -393,7 +396,7 @@ class Client:
             self.clientid, self.slug, states, timestamp=timestamp
         )
 
-    async def _sync_file(self, filename, size, md5, data, chunk_size=256):
+    async def _sync_file(self, filename, size, md5, data):
         remote = await self.send_and_get_response(
             {"cmd": "file_query", "filename": filename},
             [{"cmd": "file_info", "filename": filename}],
@@ -451,7 +454,7 @@ class Client:
             if response["cmd"] == "file_continue":
                 position = response["position"]
                 data.seek(position)
-                chunk = data.read(chunk_size)
+                chunk = data.read(self.chunk_size)
                 file_data = {
                     "cmd": "file_data",
                     "filename": filename,
@@ -464,7 +467,7 @@ class Client:
 
         self.logger.error(f"sync: {filename} no response")
 
-    async def _sync_firmware(self, size, md5, data, chunk_size=256):
+    async def _sync_firmware(self, size, md5, data):
         if self.remote_firmware_active is None and self.remote_firmware_pending is None:
             self.logger.info("sync: firmware remote state is unknown")
             return
@@ -519,7 +522,7 @@ class Client:
             if response["cmd"] == "firmware_continue":
                 position = response["position"]
                 data.seek(position)
-                chunk = data.read(chunk_size)
+                chunk = data.read(self.chunk_size)
                 file_data = {
                     "cmd": "firmware_data",
                     "position": position,
