@@ -793,6 +793,14 @@ class ClientFactory:
                 output[clientid] = self.clients_by_id[clientid].status_json()
             return json.dumps(output)
 
+        if message.get("cmd") == "disconnect-all":
+            for client in self.clients_by_id.values():
+                try:
+                    client.writer.close()
+                except:
+                    pass
+            return "OK"
+
         client = None
         if "id" in message:
             client = self.client_from_id(message["id"]) or self.client_from_slug(
