@@ -18,3 +18,9 @@ repos:
   rev: v2.31.1
   hooks:
   - id: pyupgrade
+- repo: https://github.com/PyCQA/flake8
+  rev: 6.1.0
+  hooks:
+  - id: flake8
+    args:
+      - --select=E9,F63,F7,F82
