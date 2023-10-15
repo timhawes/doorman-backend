@@ -380,7 +380,7 @@ class Client:
             await asyncio.wait_for(cb.event.wait(), timeout=timeout)
             return cb.response
         except asyncio.TimeoutError:
-            self.logger.warn(f"callback timeout waiting for {filter}")
+            self.logger.warn(f"callback timeout waiting for {filters}")
         finally:
             self.callbacks.remove(cb)
 
