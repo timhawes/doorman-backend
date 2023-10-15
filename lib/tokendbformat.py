@@ -56,7 +56,7 @@ def encode_tokendb_v2(data, hash_length=4, salt=b""):
 
 
 def decode_tokendb_v2(data):
-    version = data[pos]
+    version = data[0]
     if version != 3:
         raise ValueError("Incorrect version byte")
 
