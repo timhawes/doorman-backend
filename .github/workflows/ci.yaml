@@ -32,11 +32,13 @@ jobs:
         run: |
           pre-commit run --all-files
 
-      - name: Check requirements.txt
+      - name: Check requirements.txt is up to date
         run: |
           pipenv requirements --hash >requirements.txt.new
           diff -usw requirements.txt requirements.txt.new
 
       - name: Install requirements
-        run: |
-          pip install --require-hashes -r requirements.txt
+        run: pipenv sync
+
+      - name: Compile / syntax check
+        run: pipenv run python -m py_compile server.py
