@@ -35,7 +35,7 @@ jobs:
       - name: Check requirements.txt
         run: |
           pipenv requirements --hash >requirements.txt.new
-          diff -us requirements.txt requirements.txt.new
+          diff -usw requirements.txt requirements.txt.new
 
       - name: Install requirements
         run: |
