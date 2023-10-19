@@ -13,6 +13,7 @@ from hooks.dispatcher import HookDispatcher
 from hooks.localdeviceconfig import LocalDeviceConfig
 from hooks.hacklabtokens import HacklabTokens
 from hooks.mqttmetrics import MqttMetrics
+from hooks.appriseevents import AppriseEvents
 from hooks.discordevents import DiscordEvents
 from hooks.localtokens import LocalTokens
 from hooks.logdebug import LogDebug
@@ -44,6 +45,10 @@ class settings:
     discord_webhook = os.environ.get("DISCORD_WEBHOOK")
     discord_events = (
         os.environ.get("DISCORD_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
+    )
+    apprise_urls = os.environ.get("APPRISE_URLS").strip().split()
+    apprise_events = (
+        os.environ.get("APPRISE_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
     )
     if os.environ.get("DEBUG_MODE"):
         debug = True
@@ -278,6 +283,10 @@ if settings.mqtt_host:
         MqttMetrics(
             settings.mqtt_host, port=settings.mqtt_port, prefix=settings.mqtt_prefix
         )
+    )
+if settings.apprise_urls:
+    hooks.add_hook(
+        AppriseEvents(settings.apprise_urls, apprise_events=settings.apprise_events)
     )
 if settings.discord_webhook:
     hooks.add_hook(

@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f3a1571ebe433e466ae528b8726b7194a879f0de838e3b8439349a39c1911f54"
+            "sha256": "fb8d62b35ede37978117b9d793ee2681eb1768e485732af32b9ac5c0006d86a0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -116,6 +116,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==1.3.1"
+        },
+        "apprise": {
+            "hashes": [
+                "sha256:3eefab1c5d7978b0e65c5091d1cdbe9206865dc3cb5d19ca5cfbddb76e8aaffe",
+                "sha256:78dbda7fd749d8f5c0c0307ef3e350cdc9eb33aa018008577b2d0c69b6cd7c71"
+            ],
+            "index": "pypi",
+            "version": "==1.6.0"
         },
         "async-timeout": {
             "hashes": [
@@ -237,6 +245,14 @@
             "markers": "python_full_version >= '3.7.0'",
             "version": "==3.3.0"
         },
+        "click": {
+            "hashes": [
+                "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+                "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==8.1.7"
+        },
         "disnake": {
             "hashes": [
                 "sha256:0dcc1c4e4194e665254ad5533fc78563664ad267261489f6b4fa8e9ea8fcdc79",
@@ -320,6 +336,14 @@
             "markers": "python_version >= '3.5'",
             "version": "==3.4"
         },
+        "markdown": {
+            "hashes": [
+                "sha256:4afb124395ce5fc34e6d9886dab977fd9ae987fc6e85689f08278cf0c69d4bf3",
+                "sha256:a807eb2e4778d9156c8f07876c6e4d50b5494c5665c4834f67b06459dfd877b3"
+            ],
+            "markers": "python_version >= '3.8'",
+            "version": "==3.5"
+        },
         "multidict": {
             "hashes": [
                 "sha256:01a3a55bd90018c9c080fbb0b9f4891db37d148a0a18722b42f94694f8b6d4c9",
@@ -400,6 +424,14 @@
             "markers": "python_version >= '3.7'",
             "version": "==6.0.4"
         },
+        "oauthlib": {
+            "hashes": [
+                "sha256:8139f29aac13e25d502680e9e19963e83f16838d48a0d71c287fe40e7067fbca",
+                "sha256:9859c40929662bec5d64f34d01c99e093149682a3f38915dc0655d5a633dd918"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==3.2.2"
+        },
         "paho-mqtt": {
             "hashes": [
                 "sha256:2a8291c81623aec00372b5a85558a372c747cbca8e9934dfe218638b8eefc26f"
@@ -470,6 +502,14 @@
             ],
             "index": "pypi",
             "version": "==2.31.0"
+        },
+        "requests-oauthlib": {
+            "hashes": [
+                "sha256:2577c501a2fb8d05a304c09d090d6e47c306fef15809d102b327cf8364bddab5",
+                "sha256:75beac4a47881eeb94d5ea5d6ad31ef88856affe2332b9aafb52c6452ccf0d7a"
+            ],
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==1.3.1"
         },
         "urllib3": {
             "hashes": [

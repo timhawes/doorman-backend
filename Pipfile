@@ -9,6 +9,7 @@ paho-mqtt = "*"
 pyyaml = "*"
 disnake = "*"
 requests = "*"
+apprise = "*"
 
 [dev-packages]
 
