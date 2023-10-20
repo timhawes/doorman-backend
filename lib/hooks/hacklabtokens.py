@@ -45,9 +45,7 @@ class HacklabTokens(BaseHook):
         if response.get("found") is True:
             if response.get("authorized") is True:
                 username = response["username"]
-                logging.info(
-                    "token {} -> user {} -> ok (online auth)".format(uid, username)
-                )
+                logging.info(f"token {uid} -> user {username} -> ok (online auth)")
                 return {"uid": uid, "name": username, "access": 1}
             else:
                 logging.info(

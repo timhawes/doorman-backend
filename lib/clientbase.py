@@ -133,8 +133,8 @@ class Client:
     def __str__(self):
         if self.writer:
             tags = [
-                "slug={}".format(self.slug),
-                "clientid={}".format(self.clientid),
+                f"slug={self.slug}",
+                f"clientid={self.clientid}",
             ]
             peername = self.writer.get_extra_info("peername")
             if peername:
@@ -144,7 +144,7 @@ class Client:
                 tags.append("cipher={}:{}:{}".format(*cipher))
             return "<{} {}>".format(self.__class__.__name__, " ".join(tags))
         else:
-            return "<{} clientid={}>".format(self.__class__.__name__, self.clientid)
+            return f"<{self.__class__.__name__} clientid={self.clientid}>"
 
     async def reload_settings(self):
         self.config = await self.hooks.get_device(self.clientid)
@@ -216,11 +216,11 @@ class Client:
         }
         if self.connect_start:
             status["connect_start"] = datetime.datetime.fromtimestamp(
-                self.connect_start, datetime.timezone.utc
+                self.connect_start, datetime.UTC
             ).isoformat()
         if self.connect_finish:
             status["connect_finish"] = datetime.datetime.fromtimestamp(
-                self.connect_finish, datetime.timezone.utc
+                self.connect_finish, datetime.UTC
             ).isoformat()
         if self.connected:
             status["connect_uptime"] = int(time.time() - self.connect_start)
@@ -248,7 +248,7 @@ class Client:
         await self.factory.hooks.log_event(event)
 
     async def send_message(self, message):
-        self.logger.info("send {}".format(self.loggable_message(message)))
+        self.logger.info(f"send {self.loggable_message(message)}")
         await self.write_callback(message)
 
     async def send_and_get_response(self, message, filters, timeout=5):
@@ -258,7 +258,7 @@ class Client:
         try:
             await asyncio.wait_for(cb.event.wait(), timeout=timeout)
             return cb.response
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.warn(f"callback timeout waiting for {filters}")
         finally:
             self.callbacks.remove(cb)
@@ -497,7 +497,7 @@ class Client:
             await asyncio.sleep(180)
 
     async def handle_connect(self):
-        self.logger.info("connect {}".format(self))
+        self.logger.info(f"connect {self}")
         await self.reload_settings()
         event = {
             "event": "connect",
@@ -522,16 +522,16 @@ class Client:
         self.connect_finish = time.time()
         self.connected = False
         if self.factory.client_from_id(self.clientid) is self:
-            self.logger.info("disconnect: {} (final)".format(reason))
+            self.logger.info(f"disconnect: {reason} (final)")
             await self.log_event({"event": "disconnect"})
             await self.set_states({"status": "offline", "address": None})
         else:
-            self.logger.info("disconnect: {} (replaced)".format(reason))
+            self.logger.info(f"disconnect: {reason} (replaced)")
 
     async def handle_message(self, message):
         """Handle and dispatch an incoming message from the client."""
 
-        self.logger.info("recv {}".format(self.loggable_message(message)))
+        self.logger.info(f"recv {self.loggable_message(message)}")
 
         handled_by_callback = False
 
@@ -643,7 +643,7 @@ class Client:
             message["uid"],
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
-            location="{}:{}".format(self.__class__.__name__.lower(), self.slug),
+            location=f"{self.__class__.__name__.lower()}:{self.slug}",
             extra={"counter": message.get("ntag_counter", None)},
         )
         if result:
@@ -705,13 +705,13 @@ class ClientFactory:
             if client:
                 client.reader = reader
                 client.writer = writer
-                logging.info("client_from_hello -> {}".format(client))
+                logging.info(f"client_from_hello -> {client}")
                 return client
             else:
                 logging.info("client_from_hello -> auth failed")
 
     async def command(self, message):
-        logging.info("command received: {}".format(message))
+        logging.info(f"command received: {message}")
 
         if message.get("cmd") == "list-all":
             output = {}

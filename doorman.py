@@ -99,7 +99,7 @@ class DoorFactory(ClientFactory):
     def __init__(self, hooks, tokendb):
         self.hooks = hooks
         self.tokendb = tokendb
-        super(DoorFactory, self).__init__()
+        super().__init__()
 
     async def client_from_auth(self, clientid, password, address=None):
         if clientid.startswith("doorman-"):
@@ -113,5 +113,5 @@ class DoorFactory(ClientFactory):
             self.clients_by_slug[client.slug] = client
             return client
         else:
-            logging.info("client {} auth failed (address={})".format(clientid, address))
+            logging.info(f"client {clientid} auth failed (address={address})")
         return None

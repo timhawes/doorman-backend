@@ -298,7 +298,7 @@ class RemoteFile:
             ),
         )
         try:
-            with open(path + ".meta", "r") as f:
+            with open(path + ".meta") as f:
                 meta = json.load(f)
                 self.etag = meta["etag"]
                 self.last_modified = meta["last_modified"]
@@ -306,7 +306,7 @@ class RemoteFile:
                 self.stale_while_revalidate_until = meta["stale_while_revalidate_until"]
                 self.stale_if_error_until = meta["stale_if_error_until"]
             if self.text:
-                with open(path + ".data", "r") as f:
+                with open(path + ".data") as f:
                     self.content = f.read()
                     self.md5 = hashlib.md5(self.content.encode()).hexdigest()
             else:

@@ -44,9 +44,7 @@ class TokenAuthDatabase:
         for username in self.data.keys():
             for group in self.data[username]["groups"]:
                 if group in exclude_groups:
-                    logging.info(
-                        "excluding user {} due to group {}".format(username, group)
-                    )
+                    logging.info(f"excluding user {username} due to group {group}")
                 elif group in groups:
                     for uid in self.data[username]["tokens"]:
                         uids[uid] = True
@@ -61,9 +59,7 @@ class TokenAuthDatabase:
         for username in self.data.keys():
             for group in self.data[username]["groups"]:
                 if group in exclude_groups:
-                    logging.info(
-                        "excluding user {} due to group {}".format(username, group)
-                    )
+                    logging.info(f"excluding user {username} due to group {group}")
                 elif group in groups:
                     for uid in self.data[username]["tokens"]:
                         uids[uid] = username
@@ -76,9 +72,7 @@ class TokenAuthDatabase:
         for username in self.data.keys():
             for group in self.data[username]["groups"]:
                 if group in exclude_groups:
-                    logging.info(
-                        "excluding user {} due to group {}".format(username, group)
-                    )
+                    logging.info(f"excluding user {username} due to group {group}")
                 elif group in groups:
                     for uid in self.data[username]["tokens"]:
                         uids[uid] = username

@@ -103,10 +103,10 @@ async def ss_reader(reader, callback, timeout=180):
             try:
                 msg = json.loads(data)
             except UnicodeDecodeError:
-                logging.exception("Error processing received packet {}".format(data))
+                logging.exception(f"Error processing received packet {data}")
                 return
             except json.JSONDecodeError:
-                logging.exception("Error processing received packet {}".format(data))
+                logging.exception(f"Error processing received packet {data}")
                 return
             await callback(msg)
         else:
@@ -131,13 +131,13 @@ async def gather_group(*tasks):
 
 async def ss_handler(reader, writer):
     address = writer.get_extra_info("peername")
-    logging.debug("peername: {}".format(address))
+    logging.debug(f"peername: {address}")
     for key in ["compression", "cipher", "peercert", "sslcontext", "ssl_object"]:
         data = writer.get_extra_info(key)
         if data:
-            logging.debug("{}: {}".format(key, data))
+            logging.debug(f"{key}: {data}")
             if key == "ssl_object":
-                logging.debug("version {}".format(data.version()))
+                logging.debug(f"version {data.version()}")
 
     write_lock = asyncio.Lock()
 
@@ -167,7 +167,7 @@ async def ss_handler(reader, writer):
         await client.handle_disconnect(reason="connection reset")
     except asyncio.exceptions.IncompleteReadError as e:
         await client.handle_disconnect(reason="incomplete read")
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         await client.handle_disconnect(reason="receive timeout")
     except Exception as e:
         logging.exception("gather exception")
@@ -193,7 +193,7 @@ async def command_handler(reader, writer):
                     writer.write(response.encode() + b"\n")
                 await writer.drain()
     except Exception as e:
-        writer.write("Exception: {}\n".format(e).encode())
+        writer.write(f"Exception: {e}\n".encode())
         await writer.drain()
     writer.close()
 
@@ -208,7 +208,7 @@ async def command_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print("Serving on {}".format(addr))
+    print(f"Serving on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -222,7 +222,7 @@ async def standard_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print("Serving on {}".format(addr))
+    print(f"Serving on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -243,7 +243,7 @@ async def ssl_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print("Serving on {}".format(addr))
+    print(f"Serving on {addr}")
 
     async with server:
         await server.serve_forever()
