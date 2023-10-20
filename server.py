@@ -41,7 +41,9 @@ class settings:
     api_token = os.environ.get("API_TOKEN")
     command_socket = os.environ.get("COMMAND_SOCKET")
     apprise_urls = os.environ.get("APPRISE_URLS", "").strip().split()
-    apprise_events = os.environ.get("APPRISE_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
+    apprise_events = (
+        os.environ.get("APPRISE_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
+    )
     discord_webhook = os.environ.get("DISCORD_WEBHOOK")
     discord_events = (
         os.environ.get("DISCORD_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
