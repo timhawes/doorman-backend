@@ -1,39 +1,38 @@
-from fileloader import local_file
+import fileloader
 import mergedicts
-
 from hooks.base import BaseHook
 
 PARENT_KEY = "profiles"
 
 
 class LocalDeviceConfig(BaseHook):
-    def __init__(self, devices_filename, profiles_filename):
-        self.devices = local_file(devices_filename)
+    def __init__(self, devices_filename, profiles_filename=None):
+        loader = fileloader.get_loader()
+        self.devices = loader.local_file(devices_filename)
         if profiles_filename:
-            self.profiles = local_file(profiles_filename)
+            self.profiles = loader.local_file(profiles_filename)
         else:
             self.profiles = None
-
-    async def _get_profile(self, name):
-        if self.profiles is None:
-            return None
-        async with self.profiles as p:
-            return mergedicts.get(p, name, PARENT_KEY)
 
     async def get_device(self, clientid):
         if len(clientid) == 0:
             return None
         async with self.devices as d:
             try:
-                device_data = d[clientid]
+                device_data = d.parse()[clientid]
             except KeyError:
                 return None
         if PARENT_KEY in device_data:
+            if not self.profiles:
+                raise KeyError(
+                    "Device references a profile but no profiles file was configured"
+                )
             profiles_data = []
             async with self.profiles as p:
-                profiles_data = []
+                pdata = p.parse()
                 for name in device_data[PARENT_KEY]:
-                    profiles_data.append(await self._get_profile(name))
+                    parent_profile = mergedicts.get(pdata, name, PARENT_KEY)
+                    profiles_data.append(parent_profile)
             output = mergedicts.mergedicts([device_data] + profiles_data)
             del output[PARENT_KEY]
             return output
