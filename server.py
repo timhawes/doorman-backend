@@ -124,7 +124,7 @@ async def gather_group(*tasks):
     gathering = asyncio.gather(*tasks)
     try:
         return await gathering
-    except Exception as e:
+    except Exception:
         [task.cancel() for task in gathering._children]
         raise
 
@@ -151,7 +151,7 @@ async def ss_handler(reader, writer):
         else:
             writer.close()
             return
-    except Exception as e:
+    except Exception:
         logging.exception(f"Exception creating client for {address}")
         writer.close()
         return
@@ -163,13 +163,13 @@ async def ss_handler(reader, writer):
             client.main_task(),
             client.sync_task(),
         )
-    except ConnectionResetError as e:
+    except ConnectionResetError:
         await client.handle_disconnect(reason="connection reset")
-    except asyncio.exceptions.IncompleteReadError as e:
+    except asyncio.exceptions.IncompleteReadError:
         await client.handle_disconnect(reason="incomplete read")
-    except TimeoutError as e:
+    except TimeoutError:
         await client.handle_disconnect(reason="receive timeout")
-    except Exception as e:
+    except Exception:
         logging.exception("gather exception")
     finally:
         logging.debug("closing main_loop")
@@ -256,7 +256,7 @@ async def main():
             standard_server(),
             ssl_server(),
         )
-    except Exception as e:
+    except Exception:
         logging.exception("gather exception")
 
 

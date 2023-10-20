@@ -399,7 +399,7 @@ class Client:
             self.logger.info("sync: firmware requires sync (dry-run mode)")
             return
 
-        self.logger.info(f"sync: firmware started")
+        self.logger.info("sync: firmware started")
         await self.log_event(
             {
                 "event": "firmware_sync_start",
@@ -429,7 +429,7 @@ class Client:
                 return
             if response["cmd"] == "firmware_write_ok":
                 self.remote_firmware_pending = md5
-                self.logger.info(f"sync: firmware complete")
+                self.logger.info("sync: firmware complete")
                 await self.log_event(
                     {
                         "event": "firmware_sync_complete",
@@ -453,7 +453,7 @@ class Client:
                 await self.set_states({"firmware_progress": progress})
                 response = await self.send_and_get_response(file_data, filters)
 
-        self.logger.error(f"sync: firmware no response")
+        self.logger.error("sync: firmware no response")
 
     async def _sync_loop(self):
         self.logger.debug("sync_task: loop begins")
@@ -484,9 +484,9 @@ class Client:
                         dry_run=self.config.get("sync_dryrun", False),
                     )
             except FileNotFoundError:
-                self.logger.warn(f"fsync_task: firmware file not found")
+                self.logger.warn("fsync_task: firmware file not found")
             except Exception:
-                self.logger.exception(f"sync_task: exception")
+                self.logger.exception("sync_task: exception")
 
         self.logger.debug("sync_task: loop ends")
 
@@ -736,7 +736,7 @@ class ClientFactory:
             for client in self.clients_by_id.values():
                 try:
                     client.writer.close()
-                except:
+                except Exception:
                     pass
             return "OK"
 

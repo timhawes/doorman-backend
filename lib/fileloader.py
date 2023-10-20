@@ -324,7 +324,7 @@ class RemoteFile:
             self.stale_while_revalidate_until = None
             self.stale_if_error_until = None
             self.last_modified = None
-        except:
+        except Exception:
             logging.exception(f"{self} exception loading from cache")
         self.cache_loaded = True
 

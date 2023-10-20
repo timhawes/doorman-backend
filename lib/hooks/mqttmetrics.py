@@ -35,7 +35,7 @@ class MqttThread(threading.Thread):
                         str(payload),
                         retain=retain,
                     )
-            except Exception as e:
+            except Exception:
                 logging.exception("Exception in MqttThread")
                 time.sleep(1)
 

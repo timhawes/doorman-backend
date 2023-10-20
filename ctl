@@ -31,5 +31,5 @@ sock.close()
 try:
     data = json.loads(response.decode())
     print(json.dumps(data, indent=2, sort_keys=True))
-except:
+except Exception:
     print(response)
