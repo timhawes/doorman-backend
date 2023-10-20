@@ -110,7 +110,7 @@ class DoorFactory(ClientFactory):
                 clientid, factory=self, config=config, hooks=self.hooks, address=address
             )
             self.clients_by_id[clientid] = client
-            self.clients_by_slug[client.slug] = client
+            self.clients_by_name[client.name] = client
             return client
         else:
             logging.info(f"client {clientid} auth failed (address={address})")

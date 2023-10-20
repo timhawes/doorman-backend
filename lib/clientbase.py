@@ -79,14 +79,14 @@ class Client:
         self.connect_start = time.time()
         self.connect_finish = None
 
-        # initial value for slug
-        self.slug = self.config.get("slug", self.clientid)
+        # initial value for name
+        self.name = self.config.get("name") or self.config.get("slug") or self.clientid
 
         # chunk size for syncs
         self.chunk_size = self.config.get("sync_chunk_size", 256)
 
         # configure logging
-        self.logger = logging.getLogger(f"client.{self.clientid}/{self.slug}")
+        self.logger = logging.getLogger(f"client.{self.clientid}/{self.name}")
 
         # file loader
         self.loader = fileloader.get_loader()
@@ -133,7 +133,7 @@ class Client:
     def __str__(self):
         if self.writer:
             tags = [
-                f"slug={self.slug}",
+                f"name={self.name}",
                 f"clientid={self.clientid}",
             ]
             peername = self.writer.get_extra_info("peername")
@@ -209,7 +209,7 @@ class Client:
             "clientid": self.clientid,
             "address": f"{self.address[0]}:{self.address[1]}",
             "connected": self.connected,
-            "slug": self.slug,
+            "name": self.name,
             "metrics": self.metrics,
             "states": self.states,
             "files": self.remote_files,
@@ -235,7 +235,7 @@ class Client:
     def log(self, message):
         self.logger.info(
             "{}:{} {}/{} {}".format(
-                self.address[0], self.address[1], self.clientid, self.slug, message
+                self.address[0], self.address[1], self.clientid, self.name, message
             )
         )
 
@@ -243,7 +243,7 @@ class Client:
         if event.get("time") is None:
             event["time"] = time.time()
         event["clientid"] = self.clientid
-        event["device"] = self.slug
+        event["device"] = self.name
         self.logger.info(f"event {event}")
         await self.factory.hooks.log_event(event)
 
@@ -266,13 +266,13 @@ class Client:
     async def set_metrics(self, metrics, timestamp=None):
         self.metrics.update(metrics)
         await self.factory.hooks.log_metrics(
-            self.clientid, self.slug, metrics, timestamp=timestamp
+            self.clientid, self.name, metrics, timestamp=timestamp
         )
 
     async def set_states(self, states, timestamp=None):
         self.states.update(states)
         await self.factory.hooks.log_states(
-            self.clientid, self.slug, states, timestamp=timestamp
+            self.clientid, self.name, states, timestamp=timestamp
         )
 
     async def _sync_file(self, filename, size, md5, data, dry_run=False):
@@ -643,7 +643,7 @@ class Client:
             message["uid"],
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
-            location=f"{self.__class__.__name__.lower()}:{self.slug}",
+            location=f"{self.__class__.__name__.lower()}:{self.name}",
             extra={"counter": message.get("ntag_counter", None)},
         )
         if result:
@@ -683,7 +683,7 @@ class Client:
 class ClientFactory:
     def __init__(self):
         self.clients_by_id = {}
-        self.clients_by_slug = {}
+        self.clients_by_name = {}
 
     def client_from_id(self, clientid):
         try:
@@ -691,9 +691,9 @@ class ClientFactory:
         except KeyError:
             return None
 
-    def client_from_slug(self, slug):
+    def client_from_name(self, name):
         try:
-            return self.clients_by_slug[slug]
+            return self.clients_by_name[name]
         except KeyError:
             return None
 
@@ -716,14 +716,14 @@ class ClientFactory:
         if message.get("cmd") == "list-all":
             output = {}
             for clientid in self.clients_by_id.keys():
-                output[clientid] = self.clients_by_id[clientid].slug
+                output[clientid] = self.clients_by_id[clientid].name
             return json.dumps(output, sort_keys=True)
 
         if message.get("cmd") == "list":
             output = {}
             for clientid in self.clients_by_id.keys():
                 if self.clients_by_id[clientid].connected:
-                    output[clientid] = self.clients_by_id[clientid].slug
+                    output[clientid] = self.clients_by_id[clientid].name
             return json.dumps(output, sort_keys=True)
 
         if message.get("cmd") == "status":
@@ -742,11 +742,11 @@ class ClientFactory:
 
         client = None
         if "id" in message:
-            client = self.client_from_id(message["id"]) or self.client_from_slug(
+            client = self.client_from_id(message["id"]) or self.client_from_name(
                 message["id"]
             )
-        if "slug" in message:
-            client = self.client_from_slug(message["slug"])
+        if "name" in message:
+            client = self.client_from_name(message["name"])
         if "clientid" in message:
             client = self.client_from_id(message["clientid"])
         if not client:
