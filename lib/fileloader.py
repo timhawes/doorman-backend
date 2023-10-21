@@ -163,7 +163,7 @@ class MemoryFile:
         self.update(data)
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} {self.filename}>"
+        return f"<{self.__class__.__name__} {self._filename}>"
 
     def update(self, data):
         if data == self.content:
