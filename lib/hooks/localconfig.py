@@ -50,14 +50,14 @@ class LocalConfig(BaseHook):
             return mergedicts([data[clientid], data[LEGACY_DEFAULTS_KEY]])
 
     async def _get_device_new(self, clientid):
-        async with self.devices as d:
+        async with self.devices_file as d:
             try:
                 device_data = d.parse()[clientid]
             except KeyError:
                 return None
         if PARENT_KEY in device_data:
             profiles_data = []
-            async with self.profiles as p:
+            async with self.profiles_file as p:
                 pdata = p.parse()
                 for name in device_data[PARENT_KEY]:
                     parent_profile = mergedicts.get(pdata, name, PARENT_KEY)
