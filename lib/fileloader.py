@@ -160,12 +160,12 @@ class MemoryFile:
         self.md5 = None
         self._last_update = None
 
-        self.update(data)
+        self.update(data, initial=True)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self._filename}>"
 
-    def update(self, data):
+    def update(self, data, initial=False):
         if data == self.content:
             # not changed
             return
@@ -177,7 +177,10 @@ class MemoryFile:
             self.md5 = hashlib.md5(self.content).hexdigest()
         self._last_update = time.time()
 
-        logging.info(f"{self} updated")
+        if initial:
+            logging.info(f"{self} loaded")
+        else:
+            logging.info(f"{self} updated")
 
     def last_update(self):
         return self._last_update
@@ -206,7 +209,7 @@ class LocalFile:
         self.md5 = None
         self.mtime = None
 
-        self._load()
+        self._load(initial=True)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.filename}>"
@@ -214,7 +217,7 @@ class LocalFile:
     def last_update(self):
         return self.mtime
 
-    def _load(self):
+    def _load(self, initial=False):
         mtime = os.path.getmtime(self.filename)
         if mtime == self.mtime:
             return
@@ -233,7 +236,10 @@ class LocalFile:
         else:
             self.md5 = hashlib.md5(self.content).hexdigest()
 
-        logging.info(f"{self} updated")
+        if initial:
+            logging.info(f"{self} loaded")
+        else:
+            logging.info(f"{self} updated")
 
     async def load(self):
         async with self.lock:
