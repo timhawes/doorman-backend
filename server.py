@@ -10,12 +10,11 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), "lib"))
 
 from hooks.dispatcher import HookDispatcher
-from hooks.localdeviceconfig import LocalDeviceConfig
+from hooks.localconfig import LocalConfig
 from hooks.hacklabtokens import HacklabTokens
 from hooks.mqttmetrics import MqttMetrics
 from hooks.appriseevents import AppriseEvents
 from hooks.discordevents import DiscordEvents
-from hooks.localtokens import LocalTokens
 from hooks.logdebug import LogDebug
 import doorman
 import tokendb
@@ -240,10 +239,14 @@ else:
     logging.basicConfig(level=logging.INFO)
 
 hooks = HookDispatcher()
-hooks.add_hook(LocalDeviceConfig(settings.DEVICE_FILE))
+hooks.add_hook(
+    LocalConfig(
+        devices=settings.DEVICES_FILE,
+        profiles=settings.PROFILES_FILE,
+        tokens=settings.TOKENS_FILE,
+    )
+)
 hooks.add_hook(LogDebug())
-if settings.TOKENS_FILE:
-    hooks.add_hook(LocalTokens(settings.TOKENS_FILE))
 if settings.REMOTE_TOKENS_URL and settings.REMOTE_AUTH_URL and settings.REMOTE_SECRET:
     hooks.add_hook(
         HacklabTokens(

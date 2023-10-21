@@ -29,7 +29,8 @@ class defaults:
     MQTT_PASSWORD = None
     MQTT_TLS = False
     MQTT_PREFIX = "doorman/"
-    DEVICE_FILE = None
+    DEVICES_FILE = None
+    PROFILES_FILE = None
     TOKENS_FILE = None
     REMOTE_TOKENS_URL = None
     REMOTE_AUTH_URL = None
@@ -84,7 +85,8 @@ MQTT_USERNAME = getenv("MQTT_USERNAME", defaults.MQTT_USERNAME)
 MQTT_PASSWORD = getenv("MQTT_PASSWORD", defaults.MQTT_PASSWORD)
 MQTT_TLS = getenv("MQTT_TLS", defaults.MQTT_TLS, parser=parse_boolean)
 MQTT_PREFIX = getenv("MQTT_PREFIX", defaults.MQTT_PREFIX)
-DEVICE_FILE = getenv("DEVICE_FILE", defaults.DEVICE_FILE)
+DEVICES_FILE = getenv("DEVICES_FILE", defaults.DEVICES_FILE)
+PROFILES_FILE = getenv("PROFILES_FILE", defaults.PROFILES_FILE)
 TOKENS_FILE = getenv("TOKENS_FILE", defaults.TOKENS_FILE)
 REMOTE_TOKENS_URL = getenv("REMOTE_TOKENS_URL", defaults.REMOTE_TOKENS_URL)
 REMOTE_AUTH_URL = getenv("REMOTE_AUTH_URL", defaults.REMOTE_AUTH_URL)
