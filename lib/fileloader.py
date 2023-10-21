@@ -177,6 +177,8 @@ class MemoryFile:
             self.md5 = hashlib.md5(self.content).hexdigest()
         self._last_update = time.time()
 
+        logging.info(f"{self} updated")
+
     def last_update(self):
         return self._last_update
 
@@ -204,7 +206,7 @@ class LocalFile:
         self.md5 = None
         self.mtime = None
 
-        logging.debug(f"{self} created")
+        self._load()
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.filename}>"
@@ -212,26 +214,30 @@ class LocalFile:
     def last_update(self):
         return self.mtime
 
+    def _load(self):
+        mtime = os.path.getmtime(self.filename)
+        if mtime == self.mtime:
+            return
+
+        if self.text:
+            mode = "r"
+        else:
+            mode = "rb"
+        with open(self.filename, mode) as f:
+            self.content = f.read()
+
+        self.mtime = mtime
+        self.size = len(self.content)
+        if self.text:
+            self.md5 = hashlib.md5(self.content.encode()).hexdigest()
+        else:
+            self.md5 = hashlib.md5(self.content).hexdigest()
+
+        logging.info(f"{self} updated")
+
     async def load(self):
         async with self.lock:
-            mtime = os.path.getmtime(self.filename)
-            if mtime == self.mtime:
-                return
-
-            if self.text:
-                mode = "r"
-            else:
-                mode = "rb"
-            with open(self.filename, mode) as f:
-                self.content = f.read()
-                logging.debug(f"{self} loaded")
-
-            self.mtime = mtime
-            self.size = len(self.content)
-            if self.text:
-                self.md5 = hashlib.md5(self.content.encode()).hexdigest()
-            else:
-                self.md5 = hashlib.md5(self.content).hexdigest()
+            return self._load()
 
     def parse(self):
         return auto_parse(self.content, filename=self.filename)
@@ -281,8 +287,6 @@ class RemoteFile:
         self.stale_if_error_until = None
 
         self.cache_loaded = False
-
-        logging.debug(f"{self} created")
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.url}>"
@@ -455,27 +459,25 @@ class Loader:
     def __init__(self, cache_dir=None):
         self.cache_dir = cache_dir
         self.files = {}
-        self.lock = asyncio.Lock()
-        logging.debug(f"{self} created")
+
+        if cache_dir:
+            logging.debug(f"{self} created with cache {cache_dir}")
+        else:
+            logging.debug(f"{self} created without cache")
 
     def memory_file(self, data, text=False, filename=None):
         return MemoryFile(data, text=text, filename=filename)
 
     def local_file(self, filename, text=False):
         key = f"local:{filename}:text={text}"
-        try:
-            return self.files[key]
-        except KeyError:
+        if key not in self.files:
             self.files[key] = LocalFile(filename, text=text)
-            return self.files[key]
+        return self.files[key]
 
     def remote_file(self, url, headers={}, text=False, min_ttl=60, default_ttl=3600):
         header_hash = hashlib.md5(f"{headers}".encode()).hexdigest()
         key = f"remote:{url}:{header_hash}:text={text}:min_ttl={min_ttl}:default_ttl={default_ttl}"
-        try:
-            return self.files[key]
-        except KeyError:
-            logging.debug(f"{self} creating RemoteFile with key {key}")
+        if key not in self.files:
             self.files[key] = RemoteFile(
                 url,
                 headers=headers,
@@ -484,7 +486,7 @@ class Loader:
                 min_ttl=min_ttl,
                 default_ttl=default_ttl,
             )
-            return self.files[key]
+        return self.files[key]
 
 
 loader = None
