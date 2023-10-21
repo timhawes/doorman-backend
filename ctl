@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import socket
 import sys
 
-COMMAND_SOCKET = os.environ["COMMAND_SOCKET"]
+import settings
+
+if not settings.COMMAND_SOCKET:
+    print("Command socket path not configured")
+    sys.exit(1)
 
 if len(sys.argv) == 2:
     packet = {"cmd": sys.argv[1]}
@@ -18,7 +21,7 @@ else:
     sys.exit(1)
 
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.connect(COMMAND_SOCKET)
+sock.connect(settings.COMMAND_SOCKET)
 sock.sendall(json.dumps(packet).encode())
 sock.shutdown(socket.SHUT_WR)
 

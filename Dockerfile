@@ -7,4 +7,9 @@ RUN pip install --require-hashes -r requirements.txt
 
 COPY . .
 
-CMD ["python", "./server.py"]
+ENV \
+  CACHE_PATH=/cache \
+  COMMAND_SOCKET=/run/doorman.sock
+
+CMD ["./server.py"]
+VOLUME ["/cache"]

@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 
 import fileloader
+import settings
 
 
 def is_uid(uid):
@@ -187,7 +188,7 @@ class Client:
                 self.firmware = self.loader.local_file(firmware_filename)
             else:
                 self.firmware = self.loader.local_file(
-                    os.path.join(os.environ.get("FIRMWARE_PATH", ""), firmware_filename)
+                    os.path.join(settings.FIRMWARE_PATH, firmware_filename)
                 )
 
         try:
@@ -460,20 +461,21 @@ class Client:
 
         await self.reload_settings()
 
-        for filename in self.files.keys():
-            if self.files[filename] is None:
-                await self._sync_delete_file(filename)
-            else:
-                async with self.files[filename] as f:
-                    await self._sync_file(
-                        filename,
-                        f.size,
-                        f.md5,
-                        f.handle,
-                        dry_run=self.config.get("sync_dryrun", False),
-                    )
+        if settings.SYNC_FILES:
+            for filename in self.files.keys():
+                if self.files[filename] is None:
+                    await self._sync_delete_file(filename)
+                else:
+                    async with self.files[filename] as f:
+                        await self._sync_file(
+                            filename,
+                            f.size,
+                            f.md5,
+                            f.handle,
+                            dry_run=self.config.get("sync_dryrun", False),
+                        )
 
-        if self.firmware:
+        if settings.SYNC_FIRMWARE and self.firmware:
             try:
                 self.logger.debug(f"sync_task: firmware syncing {self.firmware}")
                 async with self.firmware as f:

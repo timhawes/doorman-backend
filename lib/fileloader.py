@@ -11,6 +11,8 @@ import urllib.parse
 import aiohttp
 import yaml
 
+import settings
+
 
 def hashed_cache_key(*args, **kwargs):
     output = []
@@ -491,5 +493,5 @@ loader = None
 def get_loader():
     global loader
     if loader is None:
-        loader = Loader(cache_dir=os.environ.get("FILELOADER_CACHE_DIR", None))
+        loader = Loader(cache_dir=settings.CACHE_PATH)
     return loader

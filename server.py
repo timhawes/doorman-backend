@@ -19,39 +19,7 @@ from hooks.localtokens import LocalTokens
 from hooks.logdebug import LogDebug
 import doorman
 import tokendb
-
-
-DEFAULT_NOTIFY_EVENTS = "backend_start connect disconnect restarted power_mains power_battery file_sync_start file_sync_complete firmware_sync_start firmware_sync_complete exit_request_ignored"
-
-
-class settings:
-    mqtt_host = os.environ.get("MQTT_HOST")
-    mqtt_port = int(os.environ.get("MQTT_PORT", "1883"))
-    mqtt_prefix = os.environ.get("MQTT_PREFIX", "doorman/")
-    server_cert_file = os.environ.get("SERVER_CERT_FILE")
-    server_key_file = os.environ.get("SERVER_KEY_FILE")
-    listen_host = os.environ.get("LISTEN_HOST", "0.0.0.0")
-    listen_port = int(os.environ.get("LISTEN_PORT", 14260))
-    listen_ssl_port = int(os.environ.get("LISTEN_SSL_PORT", 14261))
-    firmware_path = os.environ.get("FIRMWARE_PATH", "firmware")
-    config_yaml = os.environ.get("CONFIG_YAML", "config/config.yaml")
-    local_tokens_file = os.environ.get("LOCAL_TOKENS_FILE")
-    api_download_url = os.environ.get("API_DOWNLOAD_URL")
-    api_auth_url = os.environ.get("API_AUTH_URL")
-    api_token = os.environ.get("API_TOKEN")
-    command_socket = os.environ.get("COMMAND_SOCKET")
-    apprise_urls = os.environ.get("APPRISE_URLS", "").strip().split()
-    apprise_events = (
-        os.environ.get("APPRISE_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
-    )
-    discord_webhook = os.environ.get("DISCORD_WEBHOOK")
-    discord_events = (
-        os.environ.get("DISCORD_EVENTS", DEFAULT_NOTIFY_EVENTS).strip().split()
-    )
-    if os.environ.get("DEBUG_MODE"):
-        debug = True
-    else:
-        debug = False
+import settings
 
 
 async def read_packet(stream, len_bytes=1):
@@ -199,51 +167,57 @@ async def command_handler(reader, writer):
 
 
 async def command_server():
-    if settings.command_socket is None:
+    if settings.COMMAND_SOCKET is None:
         return
 
     server = await asyncio.start_unix_server(
         command_handler,
-        settings.command_socket,
+        settings.COMMAND_SOCKET,
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving on {addr}")
+    print(f"Serving commands on {addr}")
 
     async with server:
         await server.serve_forever()
 
 
 async def standard_server():
+    if not settings.INSECURE_PORT:
+        logging.warning("Insecure server not configured")
+        return
+
     server = await asyncio.start_server(
         ss_handler,
         "0.0.0.0",
-        settings.listen_port,
+        settings.INSECURE_PORT,
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving on {addr}")
+    print(f"Serving insecure on {addr}")
 
     async with server:
         await server.serve_forever()
 
 
 async def ssl_server():
+    if not (settings.TLS_PORT and settings.TLS_CERT_FILE and settings.TLS_KEY_FILE):
+        logging.warning("TLS server not configured")
+        return
+
     sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
-    sslctx.set_ciphers(
-        "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:AES256-SHA256"
-    )
-    sslctx.load_cert_chain(settings.server_cert_file, settings.server_key_file)
+    sslctx.set_ciphers(settings.TLS_CIPHERS)
+    sslctx.load_cert_chain(settings.TLS_CERT_FILE, settings.TLS_KEY_FILE)
 
     server = await asyncio.start_server(
         ss_handler,
         "0.0.0.0",
-        settings.listen_ssl_port,
+        settings.TLS_PORT,
         ssl=sslctx,
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving on {addr}")
+    print(f"Serving TLS on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -260,35 +234,35 @@ async def main():
         logging.exception("gather exception")
 
 
-if settings.debug:
+if settings.DEBUG:
     logging.basicConfig(level=logging.DEBUG)
 else:
     logging.basicConfig(level=logging.INFO)
 
 hooks = HookDispatcher()
-hooks.add_hook(LocalDeviceConfig(settings.config_yaml))
+hooks.add_hook(LocalDeviceConfig(settings.DEVICE_FILE))
 hooks.add_hook(LogDebug())
-if settings.local_tokens_file:
-    hooks.add_hook(LocalTokens(settings.local_tokens_file))
-if settings.api_download_url and settings.api_auth_url and settings.api_token:
+if settings.TOKENS_FILE:
+    hooks.add_hook(LocalTokens(settings.TOKENS_FILE))
+if settings.REMOTE_TOKENS_URL and settings.REMOTE_AUTH_URL and settings.REMOTE_SECRET:
     hooks.add_hook(
         HacklabTokens(
-            settings.api_download_url, settings.api_auth_url, settings.api_token
+            settings.REMOTE_TOKENS_URL, settings.REMOTE_AUTH_URL, settings.REMOTE_SECRET
         )
     )
-if settings.mqtt_host:
+if settings.MQTT_HOST:
     hooks.add_hook(
         MqttMetrics(
-            settings.mqtt_host, port=settings.mqtt_port, prefix=settings.mqtt_prefix
+            settings.MQTT_HOST, port=settings.MQTT_PORT, prefix=settings.MQTT_PREFIX
         )
     )
-if settings.apprise_urls:
+if settings.APPRISE_URLS:
     hooks.add_hook(
-        AppriseEvents(settings.apprise_urls, apprise_events=settings.apprise_events)
+        AppriseEvents(settings.APPRISE_URLS, apprise_events=settings.APPRISE_EVENTS)
     )
-if settings.discord_webhook:
+if settings.DISCORD_WEBHOOK:
     hooks.add_hook(
-        DiscordEvents(settings.discord_webhook, discord_events=settings.discord_events)
+        DiscordEvents(settings.DISCORD_WEBHOOK, discord_events=settings.DISCORD_EVENTS)
     )
 
 tokendb = tokendb.TokenAuthDatabase(hooks)
