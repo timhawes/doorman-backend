@@ -1,7 +1,7 @@
 import logging
 
 import fileloader
-from mergedicts import mergedicts
+import mergedicts
 
 from .base import BaseHook
 
@@ -47,7 +47,7 @@ class LocalConfig(BaseHook):
             return None
         async with self.devices_file as file:
             data = file.parse()
-            return mergedicts([data[clientid], data[LEGACY_DEFAULTS_KEY]])
+            return mergedicts.mergedicts([data[clientid], data[LEGACY_DEFAULTS_KEY]])
 
     async def _get_device_new(self, clientid):
         async with self.devices_file as d:
