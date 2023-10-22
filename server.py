@@ -9,15 +9,17 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), "lib"))
 
-from hooks.dispatcher import HookDispatcher
-from hooks.localconfig import LocalConfig
-from hooks.hacklabtokens import HacklabTokens
-from hooks.mqttmetrics import MqttMetrics
+import fileloader
+import tokendb
 from hooks.appriseevents import AppriseEvents
 from hooks.discordevents import DiscordEvents
+from hooks.dispatcher import HookDispatcher
+from hooks.hacklabtokens import HacklabTokens
+from hooks.localconfig import LocalConfig
 from hooks.logdebug import LogDebug
+from hooks.mqttmetrics import MqttMetrics
+
 import doorman
-import tokendb
 import settings
 
 
@@ -236,6 +238,9 @@ if settings.DEBUG:
     logging.basicConfig(level=logging.DEBUG)
 else:
     logging.basicConfig(level=logging.INFO)
+
+if settings.CACHE_PATH:
+    fileloader.get_loader().set_cache_dir(settings.CACHE_PATH)
 
 hooks = HookDispatcher()
 hooks.add_hook(
