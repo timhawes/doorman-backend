@@ -144,7 +144,6 @@ async def ss_handler(reader, writer):
 
 
 async def command_handler(reader, writer):
-    print("command handler connection in progress...")
     try:
         data = await reader.read()
         if len(data) > 0:
@@ -175,7 +174,7 @@ async def command_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving commands on {addr}")
+    logging.info(f"Serving commands on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -193,7 +192,7 @@ async def standard_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving insecure on {addr}")
+    logging.info(f"Serving insecure on {addr}")
 
     async with server:
         await server.serve_forever()
@@ -216,7 +215,7 @@ async def ssl_server():
     )
 
     addr = server.sockets[0].getsockname()
-    print(f"Serving TLS on {addr}")
+    logging.info(f"Serving TLS on {addr}")
 
     async with server:
         await server.serve_forever()
