@@ -479,7 +479,15 @@ class Loader:
             self.files[key] = LocalFile(filename, text=text)
         return self.files[key]
 
-    def remote_file(self, url, headers={}, text=False, min_ttl=60, default_ttl=3600):
+    def remote_file(
+        self,
+        url,
+        headers={},
+        text=False,
+        min_ttl=60,
+        default_ttl=3600,
+        min_retry_ttl=60,
+    ):
         header_hash = hashlib.md5(f"{headers}".encode()).hexdigest()
         key = f"remote:{url}:{header_hash}:text={text}:min_ttl={min_ttl}:default_ttl={default_ttl}"
         if key not in self.files:
@@ -490,6 +498,7 @@ class Loader:
                 cache_dir=self.cache_dir,
                 min_ttl=min_ttl,
                 default_ttl=default_ttl,
+                min_retry_ttl=min_retry_ttl,
             )
         return self.files[key]
 
