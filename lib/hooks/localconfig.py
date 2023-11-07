@@ -94,6 +94,10 @@ class LocalConfig(BaseHook):
     async def auth_token(
         self, uid, *, groups=None, exclude_groups=None, location=None, extra={}
     ):
+        if not self.tokens_file:
+            # not configured
+            return
+
         groups = groups or []
         exclude_groups = exclude_groups or []
 
