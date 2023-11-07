@@ -58,7 +58,7 @@ def parse_cache_control(headers, default_ttl=60):
     if "stale-while-revalidate" in cc:
         stale_while_revalidate_until = fresh_until + int(cc["stale-while-revalidate"])
 
-    stale_while_revalidate_until = fresh_until
+    stale_if_error_until = fresh_until
     if "stale-if-error" in cc:
         stale_if_error_until = fresh_until + int(cc["stale-if-error"])
 
