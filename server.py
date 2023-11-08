@@ -89,15 +89,6 @@ async def ss_write_callback(writer, lock, msg):
         await write_packet(writer, data, len_bytes=2)
 
 
-async def gather_group(*tasks):
-    gathering = asyncio.gather(*tasks)
-    try:
-        return await gathering
-    except Exception:
-        [task.cancel() for task in gathering._children]
-        raise
-
-
 async def ss_handler(reader, writer):
     address = writer.get_extra_info("peername")
     logging.debug(f"peername: {address}")
@@ -127,11 +118,10 @@ async def ss_handler(reader, writer):
 
     try:
         await client.handle_connect()
-        await gather_group(
-            ss_reader(reader, client.handle_message),
-            client.main_task(),
-            client.sync_task(),
-        )
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(ss_reader(reader, client.handle_message))
+            tg.create_task(client.main_task())
+            tg.create_task(client.sync_task())
     except ConnectionResetError:
         await client.handle_disconnect(reason="connection reset")
     except asyncio.exceptions.IncompleteReadError:
@@ -139,7 +129,7 @@ async def ss_handler(reader, writer):
     except TimeoutError:
         await client.handle_disconnect(reason="receive timeout")
     except Exception:
-        logging.exception("gather exception")
+        logging.exception("exception")
     finally:
         logging.debug("closing main_loop")
         writer.close()
@@ -225,13 +215,12 @@ async def ssl_server():
 
 async def main():
     try:
-        await gather_group(
-            command_server(),
-            standard_server(),
-            ssl_server(),
-        )
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(command_server())
+            tg.create_task(standard_server())
+            tg.create_task(ssl_server())
     except Exception:
-        logging.exception("gather exception")
+        logging.exception("exception in main task group")
 
 
 if settings.DEBUG:
