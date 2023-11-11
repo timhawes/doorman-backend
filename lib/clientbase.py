@@ -10,6 +10,14 @@ from dataclasses import dataclass
 
 import fileloader
 import settings
+import packetprotocol
+
+
+logger = logging.getLogger(__name__)
+
+
+class AuthenticationError(RuntimeError):
+    pass
 
 
 def is_uid(uid):
@@ -58,6 +66,14 @@ def legacy_config(files):
     return data
 
 
+class ConnectionLoggerAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return (
+            f"{self.extra.get('peername', '-')} {self.extra.get('clientid', '-')} {self.extra.get('name', '-')} {msg}",
+            kwargs,
+        )
+
+
 @dataclass
 class MessageCallback:
     filters: list
@@ -69,90 +85,37 @@ class MessageCallback:
             self.event = asyncio.Event()
 
 
-class Client:
-    def __init__(self, clientid, factory, config, hooks, address):
-        self.clientid = clientid
-        self.factory = factory
-        self.config = config
-        self.address = address
-        self.hooks = hooks
-        self.connected = True
-        self.connect_start = time.time()
-        self.connect_finish = None
+class CommonConnection(packetprotocol.JsonConnection):
+    client_strip_prefix = ""
 
-        # initial value for name
-        self.name = self.config.get("name") or self.config.get("slug") or self.clientid
-
-        # chunk size for syncs
-        self.chunk_size = self.config.get("sync_chunk_size", 256)
-
-        # configure logging
-        self.logger = logging.getLogger(f"client.{self.clientid}/{self.name}")
-
-        # file loader
-        self.loader = fileloader.get_loader()
-
-        # asyncio network streams, will be populated by the factory
-        self.reader = None
-        self.writer = None
-
-        # callback for sending an outbound message object
-        # will be populated by the asyncio protocol handler
-        self.write_callback = None
+    def __init__(self, manager):
+        self.manager = manager
+        self.authenticated = False
 
         # intervals
         self.time_send_interval = 3600
         self.ping_interval = 30
         self.net_metrics_query_interval = 60
 
-        # timestamps
-        self.last_time_sent = time.time() - random.randint(0, 1800)
-        self.last_ping_sent = time.time() - random.randint(
-            0, int(self.ping_interval * 0.75)
-        )
-        self.last_pong_received = time.time()
-        self.last_net_metrics_query = time.time() - random.randint(
-            0, int(self.net_metrics_query_interval * 0.75)
-        )
-
-        # remote state for syncing
-        self.remote_files = {}
-        self.remote_firmware_active = None
-        self.remote_firmware_pending = None
-
-        # local specification for syncing
-        self.files = {}
-        self.firmware = None
-
-        # metrics
-        self.metrics = {}
-        self.states = {}
-
-        # message callbacks
-        self.callbacks = []
-
     def __str__(self):
-        if self.writer:
-            tags = [
-                f"name={self.name}",
-                f"clientid={self.clientid}",
-            ]
-            peername = self.writer.get_extra_info("peername")
-            if peername:
-                tags.append("peername={}:{}".format(*peername))
-            cipher = self.writer.get_extra_info("cipher")
-            if cipher:
-                tags.append("cipher={}:{}:{}".format(*cipher))
-            return "<{} {}>".format(self.__class__.__name__, " ".join(tags))
-        else:
-            return f"<{self.__class__.__name__} clientid={self.clientid}>"
+        tags = []
+        peername = self.get_extra_info("peername")
+        if peername:
+            tags.append("peername={}:{}".format(*peername))
+        cipher = self.get_extra_info("cipher")
+        if cipher:
+            tags.append("cipher={}:{}:{}".format(*cipher))
+        if self.authenticated:
+            tags.append(f"clientid={self.clientid}")
+            tags.append(f"name={self.name}")
+        return "<{} {}>".format(self.__class__.__name__, " ".join(tags))
 
     async def reload_settings(self):
-        self.config = await self.hooks.get_device(self.clientid)
+        self.config = await self.manager.hooks.get_device(self.clientid)
 
         self.token_groups = self.config.get("groups")
         self.token_exclude_groups = self.config.get("exclude_groups")
-        token_data = await self.factory.tokendb.token_database_v2(
+        token_data = await self.manager.tokendb.token_database_v2(
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
             salt=self.config.get("token_salt").encode(),
@@ -160,7 +123,7 @@ class Client:
         if "tokens.dat" in self.files:
             self.files["tokens.dat"].update(token_data)
         else:
-            self.files["tokens.dat"] = self.loader.memory_file(
+            self.files["tokens.dat"] = self.manager.loader.memory_file(
                 token_data, filename="tokens.dat"
             )
 
@@ -172,7 +135,7 @@ class Client:
                 if filename in self.files:
                     self.files[filename].update(content)
                 else:
-                    self.files[filename] = self.loader.memory_file(
+                    self.files[filename] = self.manager.loader.memory_file(
                         content, filename=filename
                     )
 
@@ -181,13 +144,13 @@ class Client:
             if firmware_filename.startswith("https://") or firmware_filename.startswith(
                 "http://"
             ):
-                self.firmware = self.loader.remote_file(
+                self.firmware = self.manager.loader.remote_file(
                     firmware_filename, default_ttl=28800
                 )
             elif firmware_filename.startswith("/"):
-                self.firmware = self.loader.local_file(firmware_filename)
+                self.firmware = self.manager.loader.local_file(firmware_filename)
             else:
-                self.firmware = self.loader.local_file(
+                self.firmware = self.manager.loader.local_file(
                     os.path.join(settings.FIRMWARE_PATH, firmware_filename)
                 )
 
@@ -199,7 +162,7 @@ class Client:
             if "config.json" in self.files:
                 self.files["config.json"].update(legacy_config_json)
             else:
-                self.files["config.json"] = self.loader.memory_file(
+                self.files["config.json"] = self.manager.loader.memory_file(
                     legacy_config_json, filename="config.json"
                 )
         except Exception as e:
@@ -208,7 +171,7 @@ class Client:
     def status_json(self):
         status = {
             "clientid": self.clientid,
-            "address": f"{self.address[0]}:{self.address[1]}",
+            "address": "{}:{}".format(*self.get_extra_info("peername")),
             "connected": self.connected,
             "name": self.name,
             "metrics": self.metrics,
@@ -231,14 +194,12 @@ class Client:
         output = message.copy()
         if output.get("cmd") in ["file_data", "firmware_data"]:
             output["data"] = "..."
+        if "password" in output:
+            output["password"] = "***"
         return output
 
     def log(self, message):
-        self.logger.info(
-            "{}:{} {}/{} {}".format(
-                self.address[0], self.address[1], self.clientid, self.name, message
-            )
-        )
+        self.logger.info(message)
 
     async def log_event(self, event):
         if event.get("time") is None:
@@ -246,11 +207,11 @@ class Client:
         event["clientid"] = self.clientid
         event["device"] = self.name
         self.logger.info(f"event {event}")
-        await self.factory.hooks.log_event(event)
+        await self.manager.hooks.log_event(event)
 
     async def send_message(self, message):
         self.logger.info(f"send {self.loggable_message(message)}")
-        await self.write_callback(message)
+        await super().send_message(message)
 
     async def send_and_get_response(self, message, filters, timeout=5):
         cb = MessageCallback(filters=filters)
@@ -266,13 +227,13 @@ class Client:
 
     async def set_metrics(self, metrics, timestamp=None):
         self.metrics.update(metrics)
-        await self.factory.hooks.log_metrics(
+        await self.manager.hooks.log_metrics(
             self.clientid, self.name, metrics, timestamp=timestamp
         )
 
     async def set_states(self, states, timestamp=None):
         self.states.update(states)
-        await self.factory.hooks.log_states(
+        await self.manager.hooks.log_states(
             self.clientid, self.name, states, timestamp=timestamp
         )
 
@@ -499,20 +460,112 @@ class Client:
             await asyncio.sleep(180)
 
     async def handle_connect(self):
+        self.connected = True
+        self.connect_start = time.time()
+        self.connect_finish = None
+
+        # set timeout for authentication
+        self.set_timeout(60)
+
+    async def handle_disconnect(self, reason=None):
+        self.connect_finish = time.time()
+        self.connected = False
+        if self.authenticated:
+            if self.manager.clients_by_id.get(self.clientid) is self:
+                self.logger.info(f"disconnect: {reason} (final)")
+                await self.log_event({"event": "disconnect", "reason": reason})
+                await self.set_states({"status": "offline", "address": None})
+            else:
+                self.logger.info(f"disconnect: {reason} (replaced)")
+        else:
+            self.logger.info(f"disconnect: {reason}")
+
+    async def handle_unauthenticated_message(self, message):
+        if message.get("cmd") != "hello":
+            raise AuthenticationError(
+                "Invalid command type from {}:{}".format(
+                    *self.get_extra_info("peername")
+                )
+            )
+
+        # authenticate
+        clientid = message["clientid"]
+        if clientid.startswith(self.client_strip_prefix):
+            clientid = clientid[len(self.client_strip_prefix) :]
+        config = await self.manager.hooks.auth_device(clientid, message["password"])
+        if not config:
+            raise AuthenticationError(
+                "Auth failed from {}:{}".format(*self.get_extra_info("peername"))
+            )
+
+        # increase timeout after the successful authentication
+        self.set_timeout(300)
+
+        # setup
+        self.clientid = clientid
+        self.config = config
+        self.name = self.config.get("name") or self.config.get("slug") or self.clientid
+
+        # chunk size for syncs
+        self.chunk_size = self.config.get("sync_chunk_size", 256)
+
+        # configure logging
+        self.logger = ConnectionLoggerAdapter(
+            logger,
+            {
+                "peername": "{}:{}".format(*self.get_extra_info("peername")),
+                "clientid": self.clientid,
+                "name": self.name,
+            },
+        )
+
+        # timestamps
+        self.last_time_sent = time.time() - random.randint(0, 1800)
+        self.last_ping_sent = time.time() - random.randint(
+            0, int(self.ping_interval * 0.75)
+        )
+        self.last_pong_received = time.time()
+        self.last_net_metrics_query = time.time() - random.randint(
+            0, int(self.net_metrics_query_interval * 0.75)
+        )
+
+        # remote state for syncing
+        self.remote_files = {}
+        self.remote_firmware_active = None
+        self.remote_firmware_pending = None
+
+        # local specification for syncing
+        self.files = {}
+        self.firmware = None
+
+        # metrics
+        self.metrics = {}
+        self.states = {}
+
+        # message callbacks
+        self.callbacks = []
+
+        # mark connection as authenticated
+        self.authenticated = True
+
+        # register connection with the manager
+        self.manager.clients_by_id[self.clientid] = self
+        self.manager.clients_by_name[self.name] = self
+
         self.logger.info(f"connect {self}")
         await self.reload_settings()
         event = {
             "event": "connect",
-            "address": "{}:{}".format(*self.writer.get_extra_info("peername")),
+            "address": "{}:{}".format(*self.get_extra_info("peername")),
         }
-        cipher = self.writer.get_extra_info("cipher")
+        cipher = self.get_extra_info("cipher")
         if cipher:
             event["tls_cipher"] = "{}:{}:{}".format(*cipher)
         await self.log_event(event)
         await self.set_states(
             {
                 "id": self.clientid,
-                "address": self.writer.get_extra_info("peername")[0],
+                "address": self.get_extra_info("peername")[0],
                 "firmware_progress": None,
             }
         )
@@ -520,20 +573,17 @@ class Client:
         await self.send_message({"cmd": "time", "time": int(time.time())})
         await self.send_message({"cmd": "system_query"})
 
-    async def handle_disconnect(self, reason=None):
-        self.connect_finish = time.time()
-        self.connected = False
-        if self.factory.client_from_id(self.clientid) is self:
-            self.logger.info(f"disconnect: {reason} (final)")
-            await self.log_event({"event": "disconnect"})
-            await self.set_states({"status": "offline", "address": None})
-        else:
-            self.logger.info(f"disconnect: {reason} (replaced)")
+        # start main and sync tasks
+        self.create_task(self.main_task())
+        self.create_task(self.sync_task())
 
     async def handle_message(self, message):
         """Handle and dispatch an incoming message from the client."""
 
         self.logger.info(f"recv {self.loggable_message(message)}")
+
+        if not self.authenticated:
+            return await self.handle_unauthenticated_message(message)
 
         handled_by_callback = False
 
@@ -641,7 +691,7 @@ class Client:
     async def handle_cmd_token_auth(self, message):
         """Look-up a token ID and return authentication data to the client."""
 
-        result = await self.hooks.auth_token(
+        result = await self.manager.hooks.auth_token(
             message["uid"],
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
@@ -682,35 +732,42 @@ class Client:
             self.last_net_metrics_query = time.time()
 
 
-class ClientFactory:
-    def __init__(self):
+class CommonManager:
+    connection_class = CommonConnection
+
+    def __init__(self, hooks, tokendb):
+        self.hooks = hooks
+        self.tokendb = tokendb
+        self.loader = fileloader.get_loader()
         self.clients_by_id = {}
         self.clients_by_name = {}
 
-    def client_from_id(self, clientid):
+    async def stream_handler(self, reader, writer):
         try:
-            return self.clients_by_id[clientid]
-        except KeyError:
-            return None
+            conn = self.connection_class(manager=self)
+            return await conn.stream_handler(reader, writer)
+        except Exception:
+            logging.exception("Exception")
 
-    def client_from_name(self, name):
+    async def command_handler(self, reader, writer):
         try:
-            return self.clients_by_name[name]
-        except KeyError:
-            return None
-
-    async def client_from_hello(self, msg, reader, writer, address):
-        if msg["cmd"] == "hello":
-            client = await self.client_from_auth(
-                msg["clientid"], msg["password"], address=address
-            )
-            if client:
-                client.reader = reader
-                client.writer = writer
-                logging.info(f"client_from_hello -> {client}")
-                return client
-            else:
-                logging.info("client_from_hello -> auth failed")
+            data = await reader.read()
+            if len(data) > 0:
+                message = json.loads(data)
+                response = await self.command(message)
+                if isinstance(response, dict):
+                    writer.write(json.dumps(response).encode())
+                    await writer.drain()
+                elif isinstance(response, str):
+                    if response.endswith("\n"):
+                        writer.write(response.encode())
+                    else:
+                        writer.write(response.encode() + b"\n")
+                    await writer.drain()
+        except Exception as e:
+            writer.write(f"Exception: {e}\n".encode())
+            await writer.drain()
+        writer.close()
 
     async def command(self, message):
         logging.info(f"command received: {message}")
@@ -737,20 +794,20 @@ class ClientFactory:
         if message.get("cmd") == "disconnect-all":
             for client in self.clients_by_id.values():
                 try:
-                    client.writer.close()
+                    client.disconnect()
                 except Exception:
                     pass
             return "OK"
 
         client = None
         if "id" in message:
-            client = self.client_from_id(message["id"]) or self.client_from_name(
+            client = self.clients_by_id.get(message["id"]) or self.clients_by_name.get(
                 message["id"]
             )
         if "name" in message:
-            client = self.client_from_name(message["name"])
+            client = self.clients_by_name.get(message["name"])
         if "clientid" in message:
-            client = self.client_from_id(message["clientid"])
+            client = self.clients_by_id.get(message["clientid"])
         if not client:
             return "Client not found"
 
@@ -759,7 +816,7 @@ class ClientFactory:
             return "OK"
 
         if message.get("cmd") == "disconnect":
-            client.writer.close()
+            client.disconnect()
             return "OK"
 
         return "Bad command"

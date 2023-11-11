@@ -4,7 +4,7 @@ import logging
 import random
 import time
 
-from clientbase import Client, ClientFactory, is_uid
+from clientbase import CommonConnection, CommonManager, is_uid
 
 
 def encode_tune(tune):
@@ -26,7 +26,9 @@ def encode_tune(tune):
     return base64.b64encode(bytes(output)).decode()
 
 
-class Door(Client):
+class DoorConnection(CommonConnection):
+    client_strip_prefix = "doorman-"
+
     async def main_task(self):
         logging.debug("main_task() started")
 
@@ -83,7 +85,7 @@ class Door(Client):
             if message["user"] == "":
                 states["user"] = None
             elif not is_uid(message["user"]):
-                anon = await self.factory.tokendb.is_anonymous(message["user"])
+                anon = await self.manager.tokendb.is_anonymous(message["user"])
                 if anon:
                     states["user"] = "anonymous"
                 else:
@@ -95,23 +97,5 @@ class Door(Client):
         await self.set_metrics(metrics, timestamp=message.pop("time", None))
 
 
-class DoorFactory(ClientFactory):
-    def __init__(self, hooks, tokendb):
-        self.hooks = hooks
-        self.tokendb = tokendb
-        super().__init__()
-
-    async def client_from_auth(self, clientid, password, address=None):
-        if clientid.startswith("doorman-"):
-            clientid = clientid[8:]
-        config = await self.hooks.auth_device(clientid, password)
-        if config:
-            client = Door(
-                clientid, factory=self, config=config, hooks=self.hooks, address=address
-            )
-            self.clients_by_id[clientid] = client
-            self.clients_by_name[client.name] = client
-            return client
-        else:
-            logging.info(f"client {clientid} auth failed (address={address})")
-        return None
+class DoorManager(CommonManager):
+    connection_class = DoorConnection
