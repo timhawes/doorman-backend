@@ -141,7 +141,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             ):
                 self.firmware = self.manager.loader.remote_file(
                     firmware_filename,
-                    min_ttl=settings.MIN_TTL,
+                    min_ttl=settings.FIRMWARE_MIN_TTL,
                     default_ttl=settings.FIRMWARE_DEFAULT_TTL,
                 )
             elif firmware_filename.startswith("/"):
