@@ -726,7 +726,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             self.last_ping_sent = time.time()
         if time.time() - self.last_pong_received > 65:
             self.log("no pong received for >65 seconds")
-            raise Exception("no pong received for >65 seconds")
+            raise RuntimeError("no pong received for >65 seconds")
         if time.time() - self.last_net_metrics_query > self.net_metrics_query_interval:
             await self.send_message({"cmd": "net_metrics_query"})
             self.last_net_metrics_query = time.time()
