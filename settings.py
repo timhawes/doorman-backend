@@ -36,6 +36,8 @@ class defaults:
     REMOTE_AUTH_URL = None
     REMOTE_SECRET = None
     FIRMWARE_PATH = None
+    FIRMWARE_MIN_TTL = 60
+    FIRMWARE_DEFAULT_TTL = 28800
     APPRISE_URLS = None
     APPRISE_EVENTS = DEFAULT_NOTIFY_EVENTS
     DISCORD_WEBHOOK = None
@@ -44,6 +46,13 @@ class defaults:
     CACHE_PATH = None
     SYNC_FIRMWARE = True
     SYNC_FILES = True
+    SYNC_CHUNK_SIZE = 256
+    TIME_SEND_INTERVAL = 3600
+    PING_INTERVAL = 30
+    PONG_RECEIVE_TIMEOUT = 75
+    METRICS_QUERY_INTERVAL = 60
+    PACKET_READ_TIMEOUT = 300
+    PACKET_AUTH_READ_TIMEOUT = 60
 
 
 def parse_boolean(value):
@@ -92,6 +101,10 @@ REMOTE_TOKENS_URL = getenv("REMOTE_TOKENS_URL", defaults.REMOTE_TOKENS_URL)
 REMOTE_AUTH_URL = getenv("REMOTE_AUTH_URL", defaults.REMOTE_AUTH_URL)
 REMOTE_SECRET = getenv("REMOTE_SECRET", defaults.REMOTE_SECRET)
 FIRMWARE_PATH = getenv("FIRMWARE_PATH", defaults.FIRMWARE_PATH)
+FIRMWARE_MIN_TTL = getenv("FIRMWARE_MIN_TTL", defaults.FIRMWARE_MIN_TTL, parser=int)
+FIRMWARE_DEFAULT_TTL = getenv(
+    "FIRMWARE_DEFAULT_TTL", defaults.FIRMWARE_DEFAULT_TTL, parser=int
+)
 APPRISE_URLS = getenv("APPRISE_URLS", defaults.APPRISE_URLS, parser=parse_list)
 APPRISE_EVENTS = getenv("APPRISE_EVENTS", defaults.APPRISE_EVENTS, parser=parse_list)
 DISCORD_WEBHOOK = getenv("DISCORD_WEBHOOK", defaults.DISCORD_WEBHOOK)
@@ -100,3 +113,20 @@ DEBUG = getenv("DEBUG", defaults.DEBUG, parser=parse_boolean)
 CACHE_PATH = getenv("CACHE_PATH", defaults.CACHE_PATH)
 SYNC_FIRMWARE = getenv("SYNC_FIRMWARE", defaults.SYNC_FIRMWARE, parser=parse_boolean)
 SYNC_FILES = getenv("SYNC_FILES", defaults.SYNC_FILES, parser=parse_boolean)
+SYNC_CHUNK_SIZE = getenv("SYNC_CHUNK_SIZE", defaults.SYNC_CHUNK_SIZE, parser=int)
+TIME_SEND_INTERVAL = getenv(
+    "TIME_SEND_INTERVAL", defaults.TIME_SEND_INTERVAL, parser=int
+)
+PING_INTERVAL = getenv("PING_INTERVAL", defaults.PING_INTERVAL, parser=int)
+PONG_RECEIVE_TIMEOUT = getenv(
+    "PONG_RECEIVE_TIMEOUT", defaults.PONG_RECEIVE_TIMEOUT, parser=int
+)
+METRICS_QUERY_INTERVAL = getenv(
+    "METRICS_QUERY_INTERVAL", defaults.METRICS_QUERY_INTERVAL, parser=int
+)
+PACKET_READ_TIMEOUT = getenv(
+    "PACKET_READ_TIMEOUT", defaults.PACKET_READ_TIMEOUT, parser=int
+)
+PACKET_AUTH_READ_TIMEOUT = getenv(
+    "PACKET_AUTH_READ_TIMEOUT", defaults.PACKET_AUTH_READ_TIMEOUT, parser=int
+)

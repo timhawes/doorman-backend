@@ -92,11 +92,6 @@ class CommonConnection(packetprotocol.JsonConnection):
         self.manager = manager
         self.authenticated = False
 
-        # intervals
-        self.time_send_interval = 3600
-        self.ping_interval = 30
-        self.net_metrics_query_interval = 60
-
     def __str__(self):
         tags = []
         peername = self.get_extra_info("peername")
@@ -145,7 +140,9 @@ class CommonConnection(packetprotocol.JsonConnection):
                 "http://"
             ):
                 self.firmware = self.manager.loader.remote_file(
-                    firmware_filename, default_ttl=28800
+                    firmware_filename,
+                    min_ttl=settings.MIN_TTL,
+                    default_ttl=settings.FIRMWARE_DEFAULT_TTL,
                 )
             elif firmware_filename.startswith("/"):
                 self.firmware = self.manager.loader.local_file(firmware_filename)
@@ -465,7 +462,7 @@ class CommonConnection(packetprotocol.JsonConnection):
         self.connect_finish = None
 
         # set timeout for authentication
-        self.set_timeout(60)
+        self.set_timeout(settings.PACKET_AUTH_READ_TIMEOUT)
 
     async def handle_disconnect(self, reason=None):
         self.connect_finish = time.time()
@@ -499,7 +496,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             )
 
         # increase timeout after the successful authentication
-        self.set_timeout(300)
+        self.set_timeout(settings.PACKET_READ_TIMEOUT)
 
         # setup
         self.clientid = clientid
@@ -507,7 +504,7 @@ class CommonConnection(packetprotocol.JsonConnection):
         self.name = self.config.get("name") or self.config.get("slug") or self.clientid
 
         # chunk size for syncs
-        self.chunk_size = self.config.get("sync_chunk_size", 256)
+        self.chunk_size = self.config.get("sync_chunk_size", settings.SYNC_CHUNK_SIZE)
 
         # configure logging
         self.logger = ConnectionLoggerAdapter(
@@ -520,13 +517,15 @@ class CommonConnection(packetprotocol.JsonConnection):
         )
 
         # timestamps
-        self.last_time_sent = time.time() - random.randint(0, 1800)
-        self.last_ping_sent = time.time() - random.randint(
-            0, int(self.ping_interval * 0.75)
-        )
         self.last_pong_received = time.time()
+        self.last_time_sent = time.time() - random.randint(
+            0, int(settings.TIME_SEND_INTERVAL * 0.75)
+        )
+        self.last_ping_sent = time.time() - random.randint(
+            0, int(settings.PING_INTERVAL * 0.75)
+        )
         self.last_net_metrics_query = time.time() - random.randint(
-            0, int(self.net_metrics_query_interval * 0.75)
+            0, int(settings.METRICS_QUERY_INTERVAL * 0.75)
         )
 
         # remote state for syncing
@@ -718,16 +717,18 @@ class CommonConnection(packetprotocol.JsonConnection):
             )
 
     async def loop(self):
-        if time.time() - self.last_time_sent > self.time_send_interval:
+        if time.time() - self.last_time_sent > settings.TIME_SEND_INTERVAL:
             await self.send_message({"cmd": "time", "time": int(time.time())})
             self.last_time_sent = time.time()
-        if time.time() - self.last_ping_sent > self.ping_interval:
+        if time.time() - self.last_ping_sent > settings.PING_INTERVAL:
             await self.send_message({"cmd": "ping", "timestamp": str(time.time())})
             self.last_ping_sent = time.time()
-        if time.time() - self.last_pong_received > 65:
-            self.log("no pong received for >65 seconds")
-            raise RuntimeError("no pong received for >65 seconds")
-        if time.time() - self.last_net_metrics_query > self.net_metrics_query_interval:
+        if time.time() - self.last_pong_received > settings.PONG_RECEIVE_TIMEOUT:
+            self.log(f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds")
+            raise RuntimeError(
+                f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds"
+            )
+        if time.time() - self.last_net_metrics_query > settings.METRICS_QUERY_INTERVAL:
             await self.send_message({"cmd": "net_metrics_query"})
             self.last_net_metrics_query = time.time()
 
