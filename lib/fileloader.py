@@ -263,7 +263,6 @@ class RemoteFile:
         cache_dir=None,
         min_ttl=60,
         default_ttl=3600,
-        min_retry_ttl=3600,
         strict=False,
     ):
         self.url = url
@@ -274,7 +273,6 @@ class RemoteFile:
         self.cache_dir = cache_dir
         self.min_ttl = min_ttl
         self.default_ttl = default_ttl
-        self.min_retry_ttl = min_retry_ttl
         self.strict = strict
 
         self.lock = asyncio.Lock()
@@ -383,14 +381,9 @@ class RemoteFile:
                 logging.info(f"{self} still fresh")
                 return
 
-            if self.content and time.time() - self.last_read < self.min_ttl:
+            if time.time() - self.last_read < self.min_ttl:
                 # minimum ttl applies, don't recheck
                 logging.info(f"{self} still within minimum TTL")
-                return
-
-            if time.time() - self.last_read < self.min_retry_ttl:
-                # limit retry attempts
-                logging.info(f"{self} still within minimum retry TTL, cannot retry yet")
                 return
 
             headers = self.request_headers.copy()
@@ -486,7 +479,6 @@ class Loader:
         text=False,
         min_ttl=60,
         default_ttl=3600,
-        min_retry_ttl=60,
     ):
         header_hash = hashlib.md5(f"{headers}".encode()).hexdigest()
         key = f"remote:{url}:{header_hash}:text={text}:min_ttl={min_ttl}:default_ttl={default_ttl}"
@@ -498,7 +490,6 @@ class Loader:
                 cache_dir=self.cache_dir,
                 min_ttl=min_ttl,
                 default_ttl=default_ttl,
-                min_retry_ttl=min_retry_ttl,
             )
         return self.files[key]
 
