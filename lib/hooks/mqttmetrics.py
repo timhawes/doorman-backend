@@ -12,18 +12,14 @@ IGNORE_STATES = []
 
 
 class MqttThread(threading.Thread):
-    def on_connect(self, *args, **kwargs):
-        pass
-
-    def on_message(self, *args, **kwargs):
-        pass
-
     def run(self):
         while True:
             try:
                 m = mqtt.Client()
-                m.on_connect = self.on_connect
-                m.on_message = self.on_message
+                if self.mqtt_tls:
+                    m.tls_set()
+                if self.mqtt_username:
+                    m.username_pw_set(self.mqtt_username, self.mqtt_password)
                 m.connect(self.mqtt_host, self.mqtt_port)
                 m.loop_start()
                 while True:
@@ -41,7 +37,9 @@ class MqttThread(threading.Thread):
 
 
 class MqttMetrics(BaseHook):
-    def __init__(self, host, port=1883, prefix="test/"):
+    def __init__(
+        self, host, port=1883, tls=False, username=None, password=None, prefix="test/"
+    ):
         self.mqtt_prefix = prefix
         self.mqtt_queue = queue.Queue()
         self.state_cache = {}
@@ -49,6 +47,9 @@ class MqttMetrics(BaseHook):
         self.mqtt_thread = MqttThread()
         self.mqtt_thread.mqtt_host = host
         self.mqtt_thread.mqtt_port = port
+        self.mqtt_thread.mqtt_tls = tls
+        self.mqtt_thread.mqtt_username = username
+        self.mqtt_thread.mqtt_password = password
         self.mqtt_thread.mqtt_queue = self.mqtt_queue
         self.mqtt_thread.daemon = True
         self.mqtt_thread.start()

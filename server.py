@@ -115,7 +115,12 @@ if settings.REMOTE_TOKENS_URL and settings.REMOTE_AUTH_URL and settings.REMOTE_S
 if settings.MQTT_HOST:
     hooks.add_hook(
         MqttMetrics(
-            settings.MQTT_HOST, port=settings.MQTT_PORT, prefix=settings.MQTT_PREFIX
+            settings.MQTT_HOST,
+            port=settings.MQTT_PORT,
+            tls=settings.MQTT_TLS,
+            username=settings.MQTT_USERNAME,
+            password=settings.MQTT_PASSWORD,
+            prefix=settings.MQTT_PREFIX,
         )
     )
 if settings.APPRISE_URLS:
