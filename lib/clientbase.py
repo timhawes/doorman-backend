@@ -465,6 +465,9 @@ class CommonConnection(packetprotocol.JsonConnection):
         self.set_timeout(settings.PACKET_AUTH_READ_TIMEOUT)
 
     async def handle_disconnect(self, reason=None):
+        if not self.connected:
+            logging.debug(f"ignoring duplicate call to handle_disconnect ({reason})")
+            return
         self.connect_finish = time.time()
         self.connected = False
         if self.authenticated:
