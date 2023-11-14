@@ -769,7 +769,8 @@ class CommonManager:
                         writer.write(response.encode() + b"\n")
                     await writer.drain()
         except Exception as e:
-            writer.write(f"Exception: {e}\n".encode())
+            logging.exception("Exception in command_handler")
+            writer.write(f"{repr(e)}\n".encode())
             await writer.drain()
         writer.close()
 
@@ -802,6 +803,14 @@ class CommonManager:
                 except Exception:
                     pass
             return "OK"
+
+        if message.get("cmd") == "config":
+            clientid = message["id"]
+            try:
+                config = await self.hooks.get_device(clientid)
+                return json.dumps(config, sort_keys=True)
+            except KeyError:
+                return "Client not found"
 
         client = None
         if "id" in message:
