@@ -79,9 +79,15 @@ class PacketConnection:
         except* TimeoutError:
             await self.handle_disconnect(reason="TimeoutError")
         except* RuntimeError as e:
-            await self.handle_disconnect(reason=repr(e.exceptions[0]))
+            first_exception = e.exceptions[0]
+            await self.handle_disconnect(
+                reason=f"{type(first_exception).__name__}: {first_exception}"
+            )
         except* Exception as e:
-            await self.handle_disconnect(reason=repr(e.exceptions[0]))
+            first_exception = e.exceptions[0]
+            await self.handle_disconnect(
+                reason=f"{type(first_exception).__name__}: {first_exception}"
+            )
             logging.exception("Exception in stream handler")
         finally:
             writer.close()
