@@ -44,7 +44,7 @@ class PacketConnection:
         else:
             raise ValueError("Maximum packet size is 65535")
 
-    async def set_timeout(self, timeout):
+    def set_timeout(self, timeout):
         self._timeout = timeout
 
     async def stream_handler(self, reader, writer):
