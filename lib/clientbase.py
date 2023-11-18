@@ -151,19 +151,22 @@ class CommonConnection(packetprotocol.JsonConnection):
                     os.path.join(settings.FIRMWARE_PATH, firmware_filename)
                 )
 
-        try:
-            legacy_config_json = render_file(
-                "config.json",
-                legacy_config(self.config.get("files")),
-            )
-            if "config.json" in self.files:
-                self.files["config.json"].update(legacy_config_json)
-            else:
-                self.files["config.json"] = self.manager.loader.memory_file(
-                    legacy_config_json, filename="config.json"
+        if settings.GENERATE_CONFIG_JSON and "config.json" not in self.config.get(
+            "files"
+        ):
+            try:
+                legacy_config_json = render_file(
+                    "config.json",
+                    legacy_config(self.config.get("files")),
                 )
-        except Exception as e:
-            logging.exception("Skipping legacy config.json", e)
+                if "config.json" in self.files:
+                    self.files["config.json"].update(legacy_config_json)
+                else:
+                    self.files["config.json"] = self.manager.loader.memory_file(
+                        legacy_config_json, filename="config.json"
+                    )
+            except Exception as e:
+                logging.exception("Skipping legacy config.json", e)
 
     def status_json(self):
         status = {

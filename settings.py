@@ -55,6 +55,7 @@ class defaults:
     METRICS_QUERY_INTERVAL = 60
     PACKET_READ_TIMEOUT = 300
     PACKET_AUTH_READ_TIMEOUT = 60
+    GENERATE_CONFIG_JSON = False
 
 
 def parse_boolean(value):
@@ -137,4 +138,7 @@ PACKET_READ_TIMEOUT = getenv(
 )
 PACKET_AUTH_READ_TIMEOUT = getenv(
     "PACKET_AUTH_READ_TIMEOUT", defaults.PACKET_AUTH_READ_TIMEOUT, parser=int
+)
+GENERATE_CONFIG_JSON = getenv(
+    "GENERATE_CONFIG_JSON", defaults.GENERATE_CONFIG_JSON, parser=parse_boolean
 )
