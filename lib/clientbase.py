@@ -210,7 +210,9 @@ class CommonConnection(packetprotocol.JsonConnection):
         self.logger.info(f"send {self.loggable_message(message)}")
         await super().send_message(message)
 
-    async def send_and_get_response(self, message, filters, timeout=5):
+    async def send_and_get_response(
+        self, message, filters, timeout=settings.PACKET_REPLY_TIMEOUT
+    ):
         cb = MessageCallback(filters=filters)
         self.callbacks.append(cb)
         await self.send_message(message)
@@ -238,6 +240,7 @@ class CommonConnection(packetprotocol.JsonConnection):
         remote = await self.send_and_get_response(
             {"cmd": "file_query", "filename": filename},
             [{"cmd": "file_info", "filename": filename}],
+            timeout=settings.SYNC_REPLY_TIMEOUT,
         )
         if not remote:
             self.logger.warn(f"sync: {filename} no response to file_query")
@@ -275,6 +278,7 @@ class CommonConnection(packetprotocol.JsonConnection):
                 "size": size,
             },
             filters,
+            timeout=settings.SYNC_REPLY_TIMEOUT,
         )
 
         while response:
@@ -305,7 +309,9 @@ class CommonConnection(packetprotocol.JsonConnection):
                 }
                 if position + len(chunk) >= size:
                     file_data["eof"] = True
-                response = await self.send_and_get_response(file_data, filters)
+                response = await self.send_and_get_response(
+                    file_data, filters, timeout=settings.SYNC_REPLY_TIMEOUT
+                )
 
         self.logger.error(f"sync: {filename} no response")
 
@@ -313,6 +319,7 @@ class CommonConnection(packetprotocol.JsonConnection):
         remote = await self.send_and_get_response(
             {"cmd": "file_query", "filename": filename},
             [{"cmd": "file_info", "filename": filename}],
+            timeout=settings.SYNC_REPLY_TIMEOUT,
         )
         if not remote:
             self.logger.warn(f"sync: {filename} no response to file_query")
@@ -379,6 +386,7 @@ class CommonConnection(packetprotocol.JsonConnection):
                 "size": size,
             },
             filters,
+            timeout=settings.SYNC_REPLY_TIMEOUT,
         )
 
         while response:
@@ -410,7 +418,9 @@ class CommonConnection(packetprotocol.JsonConnection):
                     file_data["eof"] = True
                 progress = int(100 * (position + len(chunk)) / size)
                 await self.set_states({"firmware_progress": progress})
-                response = await self.send_and_get_response(file_data, filters)
+                response = await self.send_and_get_response(
+                    file_data, filters, timeout=settings.SYNC_REPLY_TIMEOUT
+                )
 
         self.logger.error("sync: firmware no response")
 

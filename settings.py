@@ -47,6 +47,8 @@ class defaults:
     SYNC_FIRMWARE = True
     SYNC_FILES = True
     SYNC_CHUNK_SIZE = 256
+    SYNC_REPLY_TIMEOUT = 20
+    PACKET_REPLY_TIMEOUT = 5
     TIME_SEND_INTERVAL = 3600
     PING_INTERVAL = 30
     PONG_RECEIVE_TIMEOUT = 75
@@ -114,6 +116,12 @@ CACHE_PATH = getenv("CACHE_PATH", defaults.CACHE_PATH)
 SYNC_FIRMWARE = getenv("SYNC_FIRMWARE", defaults.SYNC_FIRMWARE, parser=parse_boolean)
 SYNC_FILES = getenv("SYNC_FILES", defaults.SYNC_FILES, parser=parse_boolean)
 SYNC_CHUNK_SIZE = getenv("SYNC_CHUNK_SIZE", defaults.SYNC_CHUNK_SIZE, parser=int)
+SYNC_REPLY_TIMEOUT = getenv(
+    "SYNC_REPLY_TIMEOUT", defaults.SYNC_REPLY_TIMEOUT, parser=int
+)
+PACKET_REPLY_TIMEOUT = getenv(
+    "PACKET_REPLY_TIMEOUT", defaults.PACKET_REPLY_TIMEOUT, parser=int
+)
 TIME_SEND_INTERVAL = getenv(
     "TIME_SEND_INTERVAL", defaults.TIME_SEND_INTERVAL, parser=int
 )
