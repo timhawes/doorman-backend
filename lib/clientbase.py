@@ -710,7 +710,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             message["uid"],
             groups=self.token_groups,
             exclude_groups=self.token_exclude_groups,
-            location=f"{self.__class__.__name__.lower()}:{self.name}",
+            location=f"{settings.LOCATION_PREFIX}{self.name}",
             extra={"counter": message.get("ntag_counter", None)},
         )
         if result:

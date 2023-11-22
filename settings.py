@@ -56,6 +56,7 @@ class defaults:
     PACKET_READ_TIMEOUT = 300
     PACKET_AUTH_READ_TIMEOUT = 60
     GENERATE_CONFIG_JSON = False
+    LOCATION_PREFIX = "door:"
 
 
 def parse_boolean(value):
@@ -142,3 +143,4 @@ PACKET_AUTH_READ_TIMEOUT = getenv(
 GENERATE_CONFIG_JSON = getenv(
     "GENERATE_CONFIG_JSON", defaults.GENERATE_CONFIG_JSON, parser=parse_boolean
 )
+LOCATION_PREFIX = getenv("LOCATION_PREFIX", defaults.LOCATION_PREFIX)
