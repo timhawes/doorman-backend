@@ -581,6 +581,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             {
                 "id": self.clientid,
                 "address": self.get_extra_info("peername")[0],
+                "status": "online",
                 "firmware_progress": None,
             }
         )
