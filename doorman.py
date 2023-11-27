@@ -1,8 +1,6 @@
 import asyncio
 import base64
-import logging
 import random
-import time
 
 from clientbase import CommonConnection, CommonManager, is_uid
 
@@ -31,21 +29,19 @@ def encode_tune(tune):
 class DoorConnection(CommonConnection):
     client_strip_prefix = "doorman-"
 
-    async def main_task(self):
-        logging.debug("main_task() started")
+    async def handle_post_auth(self):
+        await super().handle_post_auth()
+        self.create_task(self.door_task())
 
+    async def door_task(self):
         await self.send_message({"cmd": "state_query"})
-        last_statistics = time.time() - random.randint(
-            0, int(settings.METRICS_QUERY_INTERVAL * 0.75)
+        await asyncio.sleep(
+            random.randint(0, int(settings.METRICS_QUERY_INTERVAL * 0.25))
         )
-
         while True:
-            await self.loop()
-            if time.time() - last_statistics > settings.METRICS_QUERY_INTERVAL:
-                await self.send_message({"cmd": "state_query"})
-                await self.send_message({"cmd": "metrics_query"})
-                last_statistics = time.time()
-            await asyncio.sleep(5)
+            await self.send_message({"cmd": "state_query"})
+            await self.send_message({"cmd": "metrics_query"})
+            await asyncio.sleep(settings.METRICS_QUERY_INTERVAL)
 
     async def handle_cmd_state_info(self, message):
         lower_state_names = [

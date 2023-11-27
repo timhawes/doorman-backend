@@ -463,11 +463,49 @@ class CommonConnection(packetprotocol.JsonConnection):
 
         self.logger.debug("sync_task: loop ends")
 
+    async def handle_post_auth(self):
+        self.create_task(self.time_send_task())
+        self.create_task(self.net_metrics_task())
+        self.create_task(self.ping_task())
+        self.create_task(self.pong_receive_task())
+        self.create_task(self.sync_task())
+
+    async def net_metrics_task(self):
+        await asyncio.sleep(
+            random.randint(0, int(settings.METRICS_QUERY_INTERVAL * 0.25))
+        )
+        while True:
+            await self.send_message({"cmd": "net_metrics_query"})
+            await asyncio.sleep(settings.METRICS_QUERY_INTERVAL)
+
+    async def ping_task(self):
+        await asyncio.sleep(random.randint(0, int(settings.PING_INTERVAL * 0.25)))
+        while True:
+            await self.send_message({"cmd": "ping", "timestamp": str(time.time())})
+            await asyncio.sleep(settings.PING_INTERVAL)
+
+    async def pong_receive_task(self):
+        self.last_pong_received = time.time()
+        while True:
+            if time.time() - self.last_pong_received > settings.PONG_RECEIVE_TIMEOUT:
+                self.log(
+                    f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds"
+                )
+                raise RuntimeError(
+                    f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds"
+                )
+            await asyncio.sleep(5)
+
     async def sync_task(self):
         self.logger.debug("sync_task: starting")
         while True:
             await self._sync_loop()
             await asyncio.sleep(180)
+
+    async def time_send_task(self):
+        while True:
+            await asyncio.sleep(settings.TIME_SEND_INTERVAL)
+            await self.send_message({"cmd": "time", "time": int(time.time())})
 
     async def handle_connect(self):
         self.connected = True
@@ -532,18 +570,6 @@ class CommonConnection(packetprotocol.JsonConnection):
             },
         )
 
-        # timestamps
-        self.last_pong_received = time.time()
-        self.last_time_sent = time.time() - random.randint(
-            0, int(settings.TIME_SEND_INTERVAL * 0.75)
-        )
-        self.last_ping_sent = time.time() - random.randint(
-            0, int(settings.PING_INTERVAL * 0.75)
-        )
-        self.last_net_metrics_query = time.time() - random.randint(
-            0, int(settings.METRICS_QUERY_INTERVAL * 0.75)
-        )
-
         # remote state for syncing
         self.remote_files = {}
         self.remote_firmware_active = None
@@ -588,10 +614,7 @@ class CommonConnection(packetprotocol.JsonConnection):
         await self.send_message({"cmd": "ready"})
         await self.send_message({"cmd": "time", "time": int(time.time())})
         await self.send_message({"cmd": "system_query"})
-
-        # start main and sync tasks
-        self.create_task(self.main_task())
-        self.create_task(self.sync_task())
+        await self.handle_post_auth()
 
     async def handle_message(self, message):
         """Handle and dispatch an incoming message from the client."""
@@ -732,22 +755,6 @@ class CommonConnection(packetprotocol.JsonConnection):
                     "found": False,
                 }
             )
-
-    async def loop(self):
-        if time.time() - self.last_time_sent > settings.TIME_SEND_INTERVAL:
-            await self.send_message({"cmd": "time", "time": int(time.time())})
-            self.last_time_sent = time.time()
-        if time.time() - self.last_ping_sent > settings.PING_INTERVAL:
-            await self.send_message({"cmd": "ping", "timestamp": str(time.time())})
-            self.last_ping_sent = time.time()
-        if time.time() - self.last_pong_received > settings.PONG_RECEIVE_TIMEOUT:
-            self.log(f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds")
-            raise RuntimeError(
-                f"no pong received for >{settings.PONG_RECEIVE_TIMEOUT} seconds"
-            )
-        if time.time() - self.last_net_metrics_query > settings.METRICS_QUERY_INTERVAL:
-            await self.send_message({"cmd": "net_metrics_query"})
-            self.last_net_metrics_query = time.time()
 
 
 class CommonManager:
