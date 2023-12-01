@@ -1,6 +1,4 @@
 import asyncio
-import binascii
-import hashlib
 import logging
 
 from tokendbformat import encode_tokendb_v1, encode_tokendb_v2, encode_tokendb_v3
@@ -10,32 +8,11 @@ class TokenAuthDatabase:
     def __init__(self, hooks):
         self.hooks = hooks
         self.data = {}
-        self.token_to_user = {}
-        self.user_to_groups = {}
-        self.md5_cache = {}
         self.lock = asyncio.Lock()
-
-    def _md5_lookup(self, data, md5):
-        for k, v in data.items():
-            if k in self.md5_cache:
-                pass
-            else:
-                self.md5_cache[k] = hashlib.md5(binascii.unhexlify(k)).hexdigest()
-            if self.md5_cache[k] == md5:
-                return k, v
-
-    def _parse_data(self):
-        self.token_to_user = {}
-        self.user_to_groups = {}
-        for user in self.data.keys():
-            for token in self.data[user]["tokens"]:
-                self.token_to_user[token] = user
-            self.user_to_groups[user] = self.data[user]["groups"]
 
     async def load(self):
         async with self.lock:
             self.data = await self.hooks.get_tokens()
-            self._parse_data()
 
     async def token_database_v1(self, groups=None, exclude_groups=[]):
         await self.load()
