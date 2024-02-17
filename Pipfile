@@ -7,7 +7,6 @@ name = "pypi"
 aiohttp = "*"
 paho-mqtt = "==1.*"
 pyyaml = "*"
-disnake = "*"
 requests = "*"
 apprise = "*"
 

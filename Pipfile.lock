@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f6f942770aa3fc50fab58d6b07318b10cbba8c264c51205ac6373ac3d3c0fed5"
+            "sha256": "a02cf74da9747dee69ef25772d62ee82de4b91ef59c22ac81a2e398b495acd08"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -235,15 +235,6 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==8.1.7"
-        },
-        "disnake": {
-            "hashes": [
-                "sha256:b6b33ba95c9d220f64fb17413d0c0ffd89708dc30510e9900a1d9990b69b929f",
-                "sha256:d2c772f4275ef3cd06775b32d3ffe97271d0df239f37880940a9ec73aa3739f6"
-            ],
-            "index": "pypi",
-            "markers": "python_version >= '3.8'",
-            "version": "==2.9.1"
         },
         "frozenlist": {
             "hashes": [

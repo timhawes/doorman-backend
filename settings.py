@@ -40,8 +40,6 @@ class defaults:
     FIRMWARE_DEFAULT_TTL = 28800
     APPRISE_URLS = None
     APPRISE_EVENTS = DEFAULT_NOTIFY_EVENTS
-    DISCORD_WEBHOOK = None
-    DISCORD_EVENTS = DEFAULT_NOTIFY_EVENTS
     DEBUG = False
     CACHE_PATH = None
     SYNC_FIRMWARE = True
@@ -111,8 +109,6 @@ FIRMWARE_DEFAULT_TTL = getenv(
 )
 APPRISE_URLS = getenv("APPRISE_URLS", defaults.APPRISE_URLS, parser=parse_list)
 APPRISE_EVENTS = getenv("APPRISE_EVENTS", defaults.APPRISE_EVENTS, parser=parse_list)
-DISCORD_WEBHOOK = getenv("DISCORD_WEBHOOK", defaults.DISCORD_WEBHOOK)
-DISCORD_EVENTS = getenv("DISCORD_EVENTS", defaults.DISCORD_EVENTS, parser=parse_list)
 DEBUG = getenv("DEBUG", defaults.DEBUG, parser=parse_boolean)
 CACHE_PATH = getenv("CACHE_PATH", defaults.CACHE_PATH)
 SYNC_FIRMWARE = getenv("SYNC_FIRMWARE", defaults.SYNC_FIRMWARE, parser=parse_boolean)

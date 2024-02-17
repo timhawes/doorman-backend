@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), "lib"))
 import fileloader
 import tokendb
 from hooks.appriseevents import AppriseEvents
-from hooks.discordevents import DiscordEvents
 from hooks.dispatcher import HookDispatcher
 from hooks.hacklabtokens import HacklabTokens
 from hooks.localconfig import LocalConfig
@@ -126,10 +125,6 @@ if settings.MQTT_HOST:
 if settings.APPRISE_URLS:
     hooks.add_hook(
         AppriseEvents(settings.APPRISE_URLS, apprise_events=settings.APPRISE_EVENTS)
-    )
-if settings.DISCORD_WEBHOOK:
-    hooks.add_hook(
-        DiscordEvents(settings.DISCORD_WEBHOOK, discord_events=settings.DISCORD_EVENTS)
     )
 
 tokendb = tokendb.TokenAuthDatabase(hooks)
