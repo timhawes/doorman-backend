@@ -11,7 +11,7 @@ def encode_tokendb_v1(data):
     for uid in sorted(data.keys()):
         uid = binascii.unhexlify(uid)
         uidlen = len(uid)
-        if uidlen == 4 or uidlen == 7:
+        if uidlen == 4 or uidlen == 7 or uidlen == 10:
             output += bytes([uidlen]) + uid
     return output
 
@@ -43,7 +43,7 @@ def encode_tokendb_v2(data, hash_length=4, salt=b""):
     for hexuid in sorted(data.keys()):
         uid = binascii.unhexlify(hexuid)
         uidlen = len(uid)
-        if uidlen == 4 or uidlen == 7:
+        if uidlen == 4 or uidlen == 7 or uidlen == 10:
             output += hashlib.md5(salt + uid).digest()[0:hash_length]
             output += bytes([1])  # access level = 0x01
             try:
@@ -97,7 +97,7 @@ def encode_tokendb_v3(data):
     for hexuid in sorted(data.keys()):
         uid = binascii.unhexlify(hexuid)
         uidlen = len(uid)
-        if uidlen == 4 or uidlen == 7:
+        if uidlen == 4 or uidlen == 7 or uidlen == 10:
             output += bytes([uidlen]) + uid
             try:
                 user = data[hexuid].encode("us-ascii")
@@ -132,9 +132,10 @@ def tests():
         "f2063d1c": "username1",
         "387e1cbb918680": "username2",
         "c2190c50948e94": "username3",
+        "16edaf65a2e035b628b5": "username4",
     }
 
-    expected_v1 = b"\x01\x07\x38\x7e\x1c\xbb\x91\x86\x80\x07\xc2\x19\x0c\x50\x94\x8e\x94\x04\xf2\x06\x3d\x1c"
+    expected_v1 = b"\x01\n\x16\xed\xafe\xa2\xe05\xb6(\xb5\x078~\x1c\xbb\x91\x86\x80\x07\xc2\x19\x0cP\x94\x8e\x94\x04\xf2\x06=\x1c"
     encoded_v1 = encode_tokendb_v1(tokens)
     assert encoded_v1 == expected_v1
 
@@ -142,7 +143,7 @@ def tests():
     decoded_v1 = decode_tokendb_v1(encoded_v1)
     assert decoded_v1 == expected_v1_decode
 
-    expected_v3 = b"\x03\x078~\x1c\xbb\x91\x86\x80\tusername2\x07\xc2\x19\x0cP\x94\x8e\x94\tusername3\x04\xf2\x06=\x1c\tusername1"
+    expected_v3 = b"\x03\n\x16\xed\xafe\xa2\xe05\xb6(\xb5\tusername4\x078~\x1c\xbb\x91\x86\x80\tusername2\x07\xc2\x19\x0cP\x94\x8e\x94\tusername3\x04\xf2\x06=\x1c\tusername1"
     encoded_v3 = encode_tokendb_v3(tokens)
     assert encoded_v3 == expected_v3
 

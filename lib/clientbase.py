@@ -21,7 +21,7 @@ class AuthenticationError(RuntimeError):
 
 
 def is_uid(uid):
-    if len(uid) not in [8, 14]:
+    if len(uid) not in [8, 14, 20]:
         return False
     for c in uid.lower():
         if c not in "0123456789abcdef":
