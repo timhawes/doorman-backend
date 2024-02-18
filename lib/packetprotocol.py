@@ -108,6 +108,8 @@ class JsonConnection(PacketConnection):
                 logging.exception(f"Error processing received packet {data}")
                 return
             await self.handle_message(message)
+        else:
+            self.logger.debug("recv keepalive")
 
     async def send_message(self, message):
         data = json.dumps(message, separators=(",", ":")).encode()
