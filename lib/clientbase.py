@@ -110,11 +110,26 @@ class CommonConnection(packetprotocol.JsonConnection):
 
         self.token_groups = self.config.get("groups")
         self.token_exclude_groups = self.config.get("exclude_groups")
-        token_data = await self.manager.tokendb.token_database_v2(
-            groups=self.token_groups,
-            exclude_groups=self.token_exclude_groups,
-            salt=self.config.get("token_salt").encode(),
-        )
+        tokendb_version = self.config.get("tokendb_version", settings.TOKENDB_VERSION)
+        match tokendb_version:
+            case 1:
+                token_data = await self.manager.tokendb.token_database_v1(
+                    groups=self.token_groups,
+                    exclude_groups=self.token_exclude_groups,
+                )
+            case 2:
+                token_data = await self.manager.tokendb.token_database_v2(
+                    groups=self.token_groups,
+                    exclude_groups=self.token_exclude_groups,
+                    salt=self.config.get("token_salt").encode(),
+                )
+            case 3:
+                token_data = await self.manager.tokendb.token_database_v3(
+                    groups=self.token_groups,
+                    exclude_groups=self.token_exclude_groups,
+                )
+            case _:
+                raise ValueError(f"Invalid tokendb_version ({tokendb_version})")
         if "tokens.dat" in self.files:
             self.files["tokens.dat"].update(token_data)
         else:

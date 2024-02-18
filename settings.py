@@ -55,6 +55,7 @@ class defaults:
     PACKET_AUTH_READ_TIMEOUT = 60
     GENERATE_CONFIG_JSON = False
     LOCATION_PREFIX = "door:"
+    TOKENDB_VERSION = 2
 
 
 def parse_boolean(value):
@@ -140,3 +141,4 @@ GENERATE_CONFIG_JSON = getenv(
     "GENERATE_CONFIG_JSON", defaults.GENERATE_CONFIG_JSON, parser=parse_boolean
 )
 LOCATION_PREFIX = getenv("LOCATION_PREFIX", defaults.LOCATION_PREFIX)
+TOKENDB_VERSION = getenv("TOKENDB_VERSION", defaults.TOKENDB_VERSION, parser=int)
