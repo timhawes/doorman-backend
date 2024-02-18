@@ -732,8 +732,9 @@ class CommonConnection(packetprotocol.JsonConnection):
                 "event": "restarted",
                 "time": timestamp,
                 "esp_reset_reason": message.get("esp_reset_reason"),
-                "esp_reset_info": message.get("esp_reset_info"),
             }
+            if "esp_reset_info" in message:
+                event["esp_reset_info"] = message["esp_reset_info"]
             if "net_reset_info" in message:
                 event["net_reset_info"] = message["net_reset_info"]
             await self.log_event(event)
