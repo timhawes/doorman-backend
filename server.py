@@ -16,6 +16,7 @@ from hooks.hacklabtokens import HacklabTokens
 from hooks.localconfig import LocalConfig
 from hooks.logdebug import LogDebug
 from hooks.mqttmetrics import MqttMetrics
+from hooks.influxmetrics import InfluxMetrics
 
 import doorman
 import settings
@@ -125,6 +126,15 @@ if settings.MQTT_HOST:
 if settings.APPRISE_URLS:
     hooks.add_hook(
         AppriseEvents(settings.APPRISE_URLS, apprise_events=settings.APPRISE_EVENTS)
+    )
+if settings.INFLUXDB_URLS:
+    hooks.add_hook(
+        InfluxMetrics(
+            settings.INFLUXDB_URLS,
+            settings.INFLUXDB_METRICS_MEASUREMENT,
+            settings.INFLUXDB_STATES_MEASUREMENT,
+            settings.INFLUXDB_EVENTS_MEASUREMENT,
+        )
     )
 
 tokendb = tokendb.TokenAuthDatabase(hooks)
