@@ -53,8 +53,10 @@ class HookDispatcher:
             "log_states", deviceid, devicename, states, timestamp=timestamp
         )
 
-    async def log_event(self, message):
-        return await self.call_method("log_event", message)
+    async def log_event(self, deviceid, devicename, message, *, timestamp=None):
+        return await self.call_method(
+            "log_event", deviceid, devicename, message, timestamp=timestamp
+        )
 
     async def log_other(self, message):
         return await self.call_method("log_other", message)

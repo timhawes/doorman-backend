@@ -12,20 +12,20 @@ from .base import BaseHook
 class AppriseThread(threading.Thread):
     def run(self):
         self.event_queue.put(
-            {"event": "backend_start", "device": "*backend*", "time": time.time()}
+            ("*backend*", "*backend*", {"event": "backend_start"}, time.time())
         )
         apobj = apprise.Apprise()
         for url in self.apprise_urls:
             apobj.add(url)
         while True:
-            event = self.event_queue.get()
+            deviceid, devicename, event, timestamp = self.event_queue.get()
             event2 = event.copy()
             for k in ["time", "millis", "clientid", "device", "event"]:
                 if k in event2:
                     del event2[k]
-            timestamp = time.strftime("%H:%M:%SZ", time.gmtime(event["time"]))
+            timestamp_text = time.strftime("%H:%M:%SZ", time.gmtime(timestamp))
             remaining = json.dumps(event2, sort_keys=True) if event2 else ""
-            message = f"{timestamp} {event['device']} {event['event']} {remaining}"
+            message = f"{timestamp_text} {devicename} {event['event']} {remaining}"
             if "all" in self.apprise_events or event["event"] in self.apprise_events:
                 apobj.notify(body=message)
 
@@ -41,6 +41,6 @@ class AppriseEvents(BaseHook):
         self.apprise_thread.daemon = True
         self.apprise_thread.start()
 
-    async def log_event(self, message):
-        logging.debug(f"AppriseEvents: queuing event {message}")
-        self.event_queue.put(message)
+    async def log_event(self, deviceid, devicename, message, *, timestamp=None):
+        logging.debug(f"AppriseEvents: queuing event {deviceid} {devicename} {message}")
+        self.event_queue.put((deviceid, devicename, message, timestamp))

@@ -216,13 +216,12 @@ class CommonConnection(packetprotocol.JsonConnection):
     def log(self, message):
         self.logger.info(message)
 
-    async def log_event(self, event):
-        if event.get("time") is None:
-            event["time"] = time.time()
-        event["clientid"] = self.clientid
-        event["device"] = self.name
-        self.logger.info(f"event {event}")
-        await self.manager.hooks.log_event(event)
+    async def log_event(self, event, timestamp=None):
+        if timestamp is None:
+            timestamp = time.time()
+        await self.manager.hooks.log_event(
+            self.clientid, self.name, event, timestamp=timestamp
+        )
 
     async def send_message(self, message):
         self.logger.info(f"send {self.loggable_message(message)}")

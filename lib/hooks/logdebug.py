@@ -10,6 +10,12 @@ class LogDebug(BaseHook):
     def __init__(self):
         self.state_cache = {}
 
+    async def log_event(self, deviceid, devicename, message, *, timestamp=None):
+        if timestamp is None:
+            timestamp = time.time()
+        for key, value in message.items():
+            logging.debug(f"{deviceid}/{devicename} {timestamp} event {message}")
+
     async def log_metrics(self, deviceid, devicename, metrics, *, timestamp=None):
         if timestamp is None:
             timestamp = time.time()
