@@ -736,6 +736,8 @@ class CommonConnection(packetprotocol.JsonConnection):
                 event["esp_reset_info"] = message["esp_reset_info"]
             if "net_reset_info" in message:
                 event["net_reset_info"] = message["net_reset_info"]
+            if "restart_reason" in message:
+                event["restart_reason"] = message["restart_reason"]
             await self.log_event(event)
 
         metrics = message.copy()
