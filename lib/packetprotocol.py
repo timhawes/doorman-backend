@@ -12,6 +12,8 @@ class CustomLoggerAdapter(logging.LoggerAdapter):
 
 
 class PacketConnection:
+    max_packet_size = 8192
+
     def create_task(self, *args, **kwargs):
         return self.tg.create_task(*args, **kwargs)
 
@@ -35,19 +37,21 @@ class PacketConnection:
         pass
 
     async def send_packet(self, data):
-        if len(data) <= 65535:
+        if len(data) <= self.max_packet_size:
             msb = len(data) >> 8
             lsb = len(data) & 255
             async with self._lock:
                 self._writer.write(bytes([msb, lsb]) + data)
                 await self._writer.drain()
         else:
-            raise ValueError("Maximum packet size is 65535")
+            raise ValueError(f"Maximum packet size is {self.max_packet_size}")
 
     def set_timeout(self, timeout):
         self._timeout = timeout
 
     async def stream_handler(self, reader, writer):
+        if self.max_packet_size > 65535:
+            self.max_packet_size = 65535
         self._writer = writer
         self._timeout = 60
         self._lock = asyncio.Lock()
@@ -66,6 +70,10 @@ class PacketConnection:
                         except asyncio.exceptions.IncompleteReadError:
                             break
                         length = header[0] << 8 | header[1]
+                        if length > self.max_packet_size:
+                            raise ValueError(
+                                f"Maximum packet size is {self.max_packet_size}"
+                            )
                         data = await reader.readexactly(length)
                     await self.handle_packet(data)
                 if self._closed_by_server:
