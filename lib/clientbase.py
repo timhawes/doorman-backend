@@ -132,6 +132,7 @@ class CommonConnection(packetprotocol.JsonConnection):
             {
                 "tokendb_version": tokendb_version,
                 "tokendb_entries": len(token_uids),
+                "tokendb_users": len(set(token_uids.values())),
                 "tokendb_size": len(token_data),
             }
         )
