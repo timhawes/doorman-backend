@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import fileloader
 import settings
 import packetprotocol
+import tokendbformat
 
 
 logger = logging.getLogger(__name__)
@@ -110,26 +111,30 @@ class CommonConnection(packetprotocol.JsonConnection):
 
         self.token_groups = self.config.get("groups")
         self.token_exclude_groups = self.config.get("exclude_groups")
+        token_uids = await self.manager.tokendb.get_uids(
+            groups=self.token_groups,
+            exclude_groups=self.token_exclude_groups,
+        )
         tokendb_version = self.config.get("tokendb_version", settings.TOKENDB_VERSION)
         match tokendb_version:
             case 1:
-                token_data = await self.manager.tokendb.token_database_v1(
-                    groups=self.token_groups,
-                    exclude_groups=self.token_exclude_groups,
-                )
+                token_data = tokendbformat.encode_tokendb_v1(token_uids)
             case 2:
-                token_data = await self.manager.tokendb.token_database_v2(
-                    groups=self.token_groups,
-                    exclude_groups=self.token_exclude_groups,
+                token_data = tokendbformat.encode_tokendb_v2(
+                    token_uids,
                     salt=self.config.get("token_salt").encode(),
                 )
             case 3:
-                token_data = await self.manager.tokendb.token_database_v3(
-                    groups=self.token_groups,
-                    exclude_groups=self.token_exclude_groups,
-                )
+                token_data = tokendbformat.encode_tokendb_v3(token_uids)
             case _:
                 raise ValueError(f"Invalid tokendb_version ({tokendb_version})")
+        await self.set_metrics(
+            {
+                "tokendb_version": tokendb_version,
+                "tokendb_entries": len(token_uids),
+                "tokendb_size": len(token_data),
+            }
+        )
         if "tokens.dat" in self.files:
             self.files["tokens.dat"].update(token_data)
         else:
