@@ -192,13 +192,16 @@ class CommonConnection(packetprotocol.JsonConnection):
     def status_json(self):
         status = {
             "clientid": self.clientid,
-            "address": "{}:{}".format(*self.get_extra_info("peername")),
+            "address": None,
             "connected": self.connected,
             "name": self.name,
             "metrics": self.metrics,
             "states": self.states,
             "files": self.remote_files,
         }
+        peername = self.get_extra_info("peername")
+        if peername:
+            status["address"] = "{}:{}".format(*peername)
         if self.connect_start:
             status["connect_start"] = datetime.datetime.fromtimestamp(
                 self.connect_start, datetime.UTC
