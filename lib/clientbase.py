@@ -13,7 +13,6 @@ import settings
 import packetprotocol
 import tokendbformat
 
-
 logger = logging.getLogger(__name__)
 
 

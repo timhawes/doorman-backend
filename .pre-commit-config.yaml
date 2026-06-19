@@ -1,29 +1,32 @@
-# SPDX-FileCopyrightText: 2024 Tim Hawes <me@timhawes.com>
+# SPDX-FileCopyrightText: 2026 Tim Hawes <me@timhawes.com>
 #
 # SPDX-License-Identifier: CC0-1.0
 
 default_language_version:
-  python: python3.13
+  python: python3.14
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-added-large-files
   - id: check-ast
 - repo: https://github.com/psf/black
-  rev: 24.10.0
+  rev: 26.5.1
   hooks:
   - id: black
+    args:
+      - --target-version
+      - py314
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.19.0
+  rev: v3.21.2
   hooks:
   - id: pyupgrade
     args:
-      - --py313-plus
+      - --py314-plus
 - repo: https://github.com/PyCQA/flake8
-  rev: 7.1.1
+  rev: 7.3.0
   hooks:
   - id: flake8
     args:
