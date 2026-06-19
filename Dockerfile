@@ -1,11 +1,10 @@
-FROM python:3.13-alpine
+FROM python:3.14-alpine
+COPY --from=ghcr.io/astral-sh/uv:0.11.23 /uv /uvx /bin/
 
-WORKDIR /usr/src/app
-
-COPY requirements.txt .
-RUN pip install --require-hashes -r requirements.txt
-
-COPY . .
+COPY . /app
+WORKDIR /app
+RUN uv sync --locked
+ENV PATH="/app/.venv/bin:$PATH"
 
 ENV \
   DOORMAN_CACHE_PATH=/cache \
