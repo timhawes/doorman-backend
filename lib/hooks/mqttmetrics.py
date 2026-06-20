@@ -4,6 +4,7 @@ import threading
 import time
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
 from .base import BaseHook
 
@@ -15,7 +16,7 @@ class MqttThread(threading.Thread):
     def run(self):
         while True:
             try:
-                m = mqtt.Client()
+                m = mqtt.Client(CallbackAPIVersion.VERSION2)
                 if self.mqtt_tls:
                     m.tls_set()
                 if self.mqtt_username:
