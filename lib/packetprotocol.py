@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class PacketOversizedError(RuntimeError):
+    pass
+
+
 class CustomLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return f"{self.extra.get('peername', '-')} {msg}", kwargs
@@ -70,7 +74,7 @@ class PacketConnection:
                             break
                         length = header[0] << 8 | header[1]
                         if length > self.max_packet_size:
-                            raise ValueError(
+                            raise PacketOversizedError(
                                 f"Maximum packet size is {self.max_packet_size}"
                             )
                         data = await reader.readexactly(length)
@@ -85,6 +89,8 @@ class PacketConnection:
             await self.handle_disconnect(reason="IncompleteReadError")
         except* TimeoutError:
             await self.handle_disconnect(reason="TimeoutError")
+        except* PacketOversizedError:
+            await self.handle_disconnect(reason="PacketOversizedError")
         except* RuntimeError as e:
             first_exception = e.exceptions[0]
             await self.handle_disconnect(
