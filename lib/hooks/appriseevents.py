@@ -27,7 +27,10 @@ class AppriseThread(threading.Thread):
             remaining = json.dumps(event2, sort_keys=True) if event2 else ""
             message = f"{timestamp_text} {devicename} {event['event']} {remaining}"
             if "all" in self.apprise_events or event["event"] in self.apprise_events:
-                apobj.notify(body=message)
+                try:
+                    apobj.notify(body=message)
+                except Exception:
+                    logging.exception("AppriseEvents: notify failed")
 
 
 class AppriseEvents(BaseHook):
